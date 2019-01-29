@@ -312,6 +312,14 @@ int step(void) {
 		int reg = (mod_rm >> 3) & 7;
 		int rm  =  mod_rm       & 7;
 
+		if (op_aritimetic_kind == OP_READ_MODRM) {
+			/* 「mod r/mを見て決定する」演算を決定する */
+			static const int kind_table[] = {
+				OP_ADD, OP_OR, OP_ADC, OP_SBB, OP_AND, OP_SUB, OP_XOR, OP_CMP
+			};
+			op_aritimetic_kind = kind_table[reg];
+		}
+
 		if (op_width == 1) {
 			if (reg < 4) {
 				reg_index = reg;
