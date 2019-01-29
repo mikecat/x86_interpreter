@@ -3,7 +3,7 @@ CFLAGS=-O2
 
 TARGET=x86_interpreter
 
-OBJS=x86_interpreter.o
+OBJS=x86_interpreter.o dynamic_memory.o
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^
