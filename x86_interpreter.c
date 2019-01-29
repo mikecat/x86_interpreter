@@ -413,8 +413,35 @@ int step(void) {
 	}
 
 	/* dispを解析する */
+	uint32_t disp = 0;
+	if (disp_size > 0) {
+		int i;
+		uint32_t disp_sign_extend = UINT32_C(0xffffffff);
+		uint8_t last_fetch;
+		for (i = 0; i < disp_size; i++) {
+			last_fetch = memory_access(eip, 0, 0);
+			eip++;
+			disp_sign_extend <<= 8;
+			disp |= last_fetch << (i * 8);
+		}
+		if (last_fetch & 0x80) disp |= disp_sign_extend;
+	}
 
 	/* 即値を解析する */
+	if (use_imm) {
+		int imm_size = one_byte_imm ? 1 : op_width;
+		int i;
+		uint32_t imm_sign_extend = UINT32_C(0xffffffff);
+		uint8_t last_fetch;
+		imm_value = 0;
+		for (i = 0; i < imm_size; i++) {
+			last_fetch = memory_access(eip, 0, 0);
+			eip++;
+			imm_sign_extend <<= 8;
+			imm_value |= last_fetch << (i * 8);
+		}
+		if (last_fetch & 0x80) imm_value |= imm_sign_extend;
+	}
 
 	/* オペランドを読み込む */
 
