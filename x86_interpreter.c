@@ -298,7 +298,7 @@ int step(void) {
 	int reg_index = 0; /* mod r/m中のregから取得したレジスタ番号 */
 	int reg_is_high = 0; /* mod r/m中のregがAH/CH/DH/BHか */
 	int modrm_reg_index = 0; /* mod r/m中のmod r/mで使うレジスタ番号 */
-	int modrm_reg_high = 0; /* mod r/m中のmod r/mで使うレジスタがAH/CH/DH/BHか */
+	int modrm_reg_is_high = 0; /* mod r/m中のmod r/mで使うレジスタがAH/CH/DH/BHか */
 	int modrm_reg2_index = 0; /* mod r/m中のmod r/mで使う2個目のレジスタ番号 */
 	int modrm_reg2_scale = 0; /* mod r/m中のmod r/mで使う2個目のレジスタの係数 */
 	int modrm_disp_only = 0; /* mod r/m中のmod r/mの実効アドレスがdispのみか */
@@ -330,14 +330,14 @@ int step(void) {
 			if (op_width == 1) {
 				if (rm < 4) {
 					modrm_reg_index = rm;
-					modrm_reg_high = 0;
+					modrm_reg_is_high = 0;
 				} else {
 					modrm_reg_index = rm & 3;
-					modrm_reg_high = 1;
+					modrm_reg_is_high = 1;
 				}
 			} else {
 				modrm_reg_index = rm;
-				modrm_reg_high = 0;
+				modrm_reg_is_high = 0;
 			}
 		} else {
 			/* メモリオペランド */
@@ -389,6 +389,28 @@ int step(void) {
 	}
 
 	/* SIBを解析する */
+	if (use_sib) {
+		uint8_t sib = memory_access(eip, 0, 0);
+		eip++;
+
+		int ss  = (sib >> 6) & 3;
+		int idx = (sib >> 3) & 7;
+		int r32 =  sib       & 7;
+
+		if (idx == 4) {
+			fprintf(stderr, "sib index=4 (none) detected at %08"PRIx32"\n\n", inst_addr);
+			print_regs(stderr);
+			return 0;
+		}
+		modrm_reg_index = r32;
+		modrm_reg2_index = idx;
+		switch (ss) {
+			case 0: modrm_reg2_scale = 1; break;
+			case 1: modrm_reg2_scale = 2; break;
+			case 2: modrm_reg2_scale = 4; break;
+			case 3: modrm_reg2_scale = 8; break;
+		}
+	}
 
 	/* dispを解析する */
 
