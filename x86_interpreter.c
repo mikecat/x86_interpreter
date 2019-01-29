@@ -301,7 +301,7 @@ int step(void) {
 	int modrm_reg_is_high = 0; /* mod r/m中のmod r/mで使うレジスタがAH/CH/DH/BHか */
 	int modrm_reg2_index = 0; /* mod r/m中のmod r/mで使う2個目のレジスタ番号 */
 	int modrm_reg2_scale = 0; /* mod r/m中のmod r/mで使う2個目のレジスタの係数 */
-	int modrm_disp_only = 0; /* mod r/m中のmod r/mの実効アドレスがdispのみか */
+	int modrm_no_reg = 0; /* mod r/m中のmod r/mの実効アドレスで最初のレジスタを使わないか */
 	int modrm_is_mem = 0; /* mod r/m中のmod r/mがメモリか */
 
 	if (use_mod_rm) {
@@ -344,8 +344,8 @@ int step(void) {
 			if (is_addr_16bit) {
 				/* 16-bit mod r/m */
 				modrm_is_mem = 1;
-				if (mod == 0 && rm == 6) {
-					modrm_disp_only = 1;
+				if (mod == 0 && rm == 5) {
+					modrm_no_reg = 1;
 					disp_size = 2;
 				} else {
 					switch (rm) {
@@ -369,12 +369,13 @@ int step(void) {
 				}
 			} else {
 				/* 32-bit mod r/m */
-				if (mod == 0 && rm == 6) {
-					modrm_disp_only = 1;
+				if (mod == 0 && rm == 5) {
+					modrm_no_reg = 1;
 					disp_size = 4;
 				} else {
 					if (rm == 4) {
 						use_sib = 1;
+						if (mod == 0) modrm_no_reg = 1;
 					} else {
 						modrm_reg_index = rm;
 					}
@@ -438,7 +439,7 @@ int step(void) {
 			uint32_t reg1_value = regs[modrm_reg_index] & mask;
 			uint32_t reg2_value = regs[modrm_reg2_index] & mask;
 			modrm_kind = OP_KIND_MEM;
-			modrm_addr = ((modrm_disp_only ? 0 : reg1_value) + (reg2_value * modrm_reg2_scale) + disp) & mask;
+			modrm_addr = ((modrm_no_reg ? 0 : reg1_value) + (reg2_value * modrm_reg2_scale) + disp) & mask;
 		} else {
 			modrm_kind = modrm_reg_is_high ? OP_KIND_REG_HIGH8 : OP_KIND_REG;
 		}
