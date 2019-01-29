@@ -82,9 +82,10 @@ int step(void) {
 
 	/* オペランドの情報 */
 	enum {
-		OP_KIND_IMM,
-		OP_KIND_MEM,
-		OP_KIND_REG
+		OP_KIND_IMM, /* 即値 (imm_value) */
+		OP_KIND_MEM, /* メモリ上のデータ (*_addr) */
+		OP_KIND_REG, /* AH/CH/DH/BHではないレジスタ上のデータ (*_reg_index) */
+		OP_KIND_REG_HIGH8 /* レジスタAH/CH/DH/BH上のデータ (*_reg_index) */
 	};
 	uint32_t src_addr = 0;
 	int src_kind = OP_KIND_IMM;
@@ -291,6 +292,101 @@ int step(void) {
 	}
 
 	/* mod r/mを解析する */
+	int use_sib = 0; /* sibを使うか */
+	int disp_size = 0; /* dispのバイト数 */
+
+	int reg_index = 0; /* mod r/m中のregから取得したレジスタ番号 */
+	int reg_is_high = 0; /* mod r/m中のregがAH/CH/DH/BHか */
+	int modrm_reg_index = 0; /* mod r/m中のmod r/mで使うレジスタ番号 */
+	int modrm_reg_high = 0; /* mod r/m中のmod r/mで使うレジスタがAH/CH/DH/BHか */
+	int modrm_reg2_index = 0; /* mod r/m中のmod r/mで使う2個目のレジスタ番号 */
+	int modrm_reg2_scale = 0; /* mod r/m中のmod r/mで使う2個目のレジスタの係数 */
+	int modrm_disp_only = 0; /* mod r/m中のmod r/mの実効アドレスがdispのみか */
+	int modrm_is_mem = 0; /* mod r/m中のmod r/mがメモリか */
+
+	if (use_mod_rm) {
+		uint8_t mod_rm = memory_access(eip, 0, 0);
+		eip++;
+
+		int mod = (mod_rm >> 6) & 3;
+		int reg = (mod_rm >> 3) & 7;
+		int rm  =  mod_rm       & 7;
+
+		if (op_width == 1) {
+			if (reg < 4) {
+				reg_index = reg;
+				reg_is_high = 0;
+			} else {
+				reg_index = reg & 3;
+				reg_is_high = 1;
+			}
+		} else {
+			reg_index = reg;
+			reg_is_high = 0;
+		}
+
+		if (mod == 3) {
+			/* レジスタオペランド */
+			if (op_width == 1) {
+				if (rm < 4) {
+					modrm_reg_index = rm;
+					modrm_reg_high = 0;
+				} else {
+					modrm_reg_index = rm & 3;
+					modrm_reg_high = 1;
+				}
+			} else {
+				modrm_reg_index = rm;
+				modrm_reg_high = 0;
+			}
+		} else {
+			/* メモリオペランド */
+			if (is_addr_16bit) {
+				/* 16-bit mod r/m */
+				modrm_is_mem = 1;
+				if (mod == 0 && rm == 6) {
+					modrm_disp_only = 1;
+					disp_size = 2;
+				} else {
+					switch (rm) {
+						case 0: case 1: case 7: modrm_reg_index = EBX; break;
+						case 2: case 3: case 6: modrm_reg_index = EBP; break;
+						case 4: modrm_reg_index = ESI; break;
+						case 5: modrm_reg_index = EDI; break;
+					}
+					if (rm == 0 || rm == 2) {
+						modrm_reg2_index = ESI;
+						modrm_reg2_scale = 1;
+					} else if (rm == 1 || rm == 3) {
+						modrm_reg2_index = EDI;
+						modrm_reg2_scale = 1;
+					}
+					switch (mod) {
+						case 0: disp_size = 0; break;
+						case 1: disp_size = 1; break;
+						case 2: disp_size = 2; break;
+					}
+				}
+			} else {
+				/* 32-bit mod r/m */
+				if (mod == 0 && rm == 6) {
+					modrm_disp_only = 1;
+					disp_size = 4;
+				} else {
+					if (rm == 4) {
+						use_sib = 1;
+					} else {
+						modrm_reg_index = rm;
+					}
+					switch (mod) {
+						case 0: disp_size = 0; break;
+						case 1: disp_size = 1; break;
+						case 2: disp_size = 4; break;
+					}
+				}
+			}
+		}
+	}
 
 	/* SIBを解析する */
 
