@@ -427,6 +427,47 @@ int step(void) {
 		if (last_fetch & 0x80) disp |= disp_sign_extend;
 	}
 
+	/* mod r/m、sib、dispに基づき、オペランドを決定する */
+	if (use_mod_rm) {
+		/* オペランドの参照先決定 */
+		int reg_kind = reg_is_high ? OP_KIND_REG_HIGH8 : OP_KIND_REG;
+		int modrm_kind;
+		uint32_t modrm_addr = 0;
+		if (modrm_is_mem) {
+			uint32_t mask = is_addr_16bit ? UINT32_C(0xffff) : UINT32_C(0xffffffff);
+			uint32_t reg1_value = regs[modrm_reg_index] & mask;
+			uint32_t reg2_value = regs[modrm_reg2_index] & mask;
+			modrm_kind = OP_KIND_MEM;
+			modrm_addr = ((modrm_disp_only ? 0 : reg1_value) + (reg2_value * modrm_reg2_scale) + disp) & mask;
+		} else {
+			modrm_kind = modrm_reg_is_high ? OP_KIND_REG_HIGH8 : OP_KIND_REG;
+		}
+
+		/* オペランドの割り当ての決定 */
+		/* srcの決定 */
+		if (!use_imm) {
+			if (is_dest_reg) {
+				/* destがregなので、srcはmod r/m */
+				src_kind = modrm_kind;
+				src_reg_index = modrm_reg_index;
+				src_addr = modrm_addr;
+			} else {
+				/* srcがreg */
+				src_kind = reg_kind;
+				src_reg_index = reg_index;
+			}
+		}
+		/* destの決定 */
+		if (is_dest_reg) {
+			dest_kind = reg_kind;
+			dest_reg_index = reg_index;
+		} else {
+			dest_kind = modrm_kind;
+			dest_reg_index = modrm_reg_index;
+			dest_addr = modrm_addr;
+		}
+	}
+
 	/* 即値を解析する */
 	if (use_imm) {
 		int imm_size = one_byte_imm ? 1 : op_width;
