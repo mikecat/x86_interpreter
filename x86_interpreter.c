@@ -26,7 +26,21 @@ uint32_t regs[8];
 uint32_t eip;
 uint32_t eflags;
 
+void print_regs(FILE* fp) {
+	fprintf(fp, "   EAX:%08"PRIx32" EBX:%08"PRIx32" ECX:%08"PRIx32" EDX:%08"PRIx32"\n",
+		regs[EAX], regs[EBX], regs[ECX], regs[EDX]);
+	fprintf(fp, "   ESI:%08"PRIx32" EDI:%08"PRIx32" ESP:%08"PRIx32" EBP:%08"PRIx32"\n",
+		regs[ESI], regs[EDI], regs[ESP], regs[EBP]);
+	fprintf(fp, "   EIP:%08"PRIx32"\n", eip);
+	fprintf(fp, "EFLAGS:%08"PRIx32
+		" (CF[%c] PF[%c] AF[%c] ZF[%c] SF[%c] IF[%c] DF[%c] OF[%c])\n", eflags,
+		eflags & CF ? 'x' : ' ', eflags & PF ? 'x' : ' ', eflags & AF ? 'x' : ' ',
+		eflags & ZF ? 'x' : ' ', eflags & SF ? 'x' : ' ', eflags & IF ? 'x' : ' ',
+		eflags & DF ? 'x' : ' ', eflags & OF ? 'x' : ' ');
+}
+
 int step(void) {
+	uint32_t inst_addr = eip; /* エラー時の検証用 */
 	uint8_t fetch_data;
 
 	int is_data_16bit = 0;
@@ -113,7 +127,9 @@ int step(void) {
 
 	/* オペコードを解析する */
 	if (fetch_data == 0x0F) {
-		
+		fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
+		print_regs(stderr);
+		return 0;
 	} else {
 		if (fetch_data <= 0x3F && (fetch_data & 0x07) <= 0x05) {
 			/* パターンに沿った演算命令 */
@@ -267,6 +283,10 @@ int step(void) {
 			src_reg_index = (fetch_data & 0x07);
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
+		} else {
+			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
+			print_regs(stderr);
+			return 0;
 		}
 	}
 
