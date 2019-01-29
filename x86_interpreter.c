@@ -60,9 +60,9 @@ int step(void) {
 		OP_READ_MODRM /* mod r/mの値を見て演算の種類を決める */
 	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
 	int op_width = 1; /* オペランドのバイト数 */
-	int is_dest_reg = 0; /* 結果の書き込み先がr/mではなくregか */
 	int jmp_take = 0; /* ジャンプを行うか */
 	int use_mod_rm = 0; /* mod r/mを使うか */
+	int is_dest_reg = 0; /* mod r/mを使うとき、結果の書き込み先がr/mではなくregか */
 	int use_imm = 0; /* 即値を使うか */
 	int one_byte_imm = 0; /* 即値が1バイトか(偽 = オペランドのサイズ) */
 
@@ -122,23 +122,23 @@ int step(void) {
 			switch (fetch_data & 0x07) {
 			case 0x00: /* r/m8, r8 */
 				op_width = 1;
-				is_dest_reg = 0;
 				use_mod_rm = 1;
+				is_dest_reg = 0;
 				break;
 			case 0x01: /* r/m16/32, r16/32 */
 				op_width = (is_data_16bit ? 2 : 4);
-				is_dest_reg = 0;
 				use_mod_rm = 1;
+				is_dest_reg = 0;
 				break;
 			case 0x02: /* r8, r/m8 */
 				op_width = 1;
-				is_dest_reg = 1;
 				use_mod_rm = 1;
+				is_dest_reg = 1;
 				break;
 			case 0x03: /* r16/32, r/m16/32 */
 				op_width = (is_data_16bit ? 2 : 4);
-				is_dest_reg = 1;
 				use_mod_rm = 1;
+				is_dest_reg = 1;
 				break;
 			case 0x04: /* AL, imm8 */
 				op_width = 1;
@@ -173,7 +173,6 @@ int step(void) {
 			op_kind = OP_ARITIMETIC;
 			op_aritimetic_kind = OP_INCDEC;
 			op_width = (is_data_16bit ? 2 : 4);
-			is_dest_reg = 1;
 			use_mod_rm = 0;
 			src_kind = OP_KIND_IMM;
 			dest_kind = OP_KIND_REG;
@@ -181,12 +180,17 @@ int step(void) {
 			imm_value = (fetch_data < 0x48 ? 1 : -1);
 		} else if (0x50 <= fetch_data && fetch_data < 0x60) {
 			/* PUSH/POP */
-			op_kind = (fetch_data < 0x58 ? OP_PUSH : OP_POP);
 			op_width = (is_data_16bit ? 2 : 4);
-			is_dest_reg = 1;
 			use_mod_rm = 0;
-			dest_kind = OP_KIND_REG;
-			dest_reg_index = fetch_data & 0x07;
+			if (fetch_data < 0x58) {
+				op_kind = OP_PUSH;
+				src_kind = OP_KIND_REG;
+				src_reg_index = fetch_data & 0x07;
+			} else {
+				op_kind = OP_POP;
+				dest_kind = OP_KIND_REG;
+				dest_reg_index = fetch_data & 0x07;
+			}
 		} else if (fetch_data == 0x60) {
 			/* PUSHA */
 			op_kind = OP_PUSHA;
@@ -198,13 +202,13 @@ int step(void) {
 			op_kind = OP_PUSH;
 			op_width = (is_data_16bit ? 2 : 4);
 			use_imm = 1;
-			dest_kind = OP_KIND_IMM;
+			src_kind = OP_KIND_IMM;
 		} else if (fetch_data == 0x6A) {
 			/* PUSH imm8 */
 			op_kind = OP_PUSH;
 			op_width = 1;
 			use_imm = 1;
-			dest_kind = OP_KIND_IMM;
+			src_kind = OP_KIND_IMM;
 		} else if (0x70 <= fetch_data && fetch_data < 0x80) {
 			/* 条件分岐 */
 			op_kind = OP_JUMP;
@@ -220,14 +224,13 @@ int step(void) {
 			}
 			if (fetch_data & 0x01) jmp_take = !jmp_take;
 			use_imm = 1;
-			dest_kind = OP_KIND_IMM;
 		} else if (0x80 <= fetch_data && fetch_data <= 0x83) {
 			/* 定数との演算 */
 			op_kind = OP_ARITIMETIC;
 			op_aritimetic_kind = OP_READ_MODRM;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
-			is_dest_reg = 0;
 			use_mod_rm = 1;
+			is_dest_reg = 0;
 			use_imm = 1;
 			src_kind = OP_KIND_IMM;
 			if (fetch_data == 0x83) one_byte_imm = 1;
@@ -242,20 +245,20 @@ int step(void) {
 				op_aritimetic_kind = OP_TEST;
 			}
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
-			is_dest_reg = (fetch_data & 2);
 			use_mod_rm = 1;
+			is_dest_reg = (fetch_data & 2);
 		} else if (fetch_data == 0x8D) {
 			/* LEA */
 			op_kind = OP_LEA;
 			op_width = 4;
-			is_dest_reg = 1;
 			use_mod_rm = 1;
+			is_dest_reg = 1;
 		} else if (fetch_data == 0x8F) {
 			/* POP r/m16/32 */
 			op_kind = OP_POP;
 			op_width = (is_data_16bit ? 2 : 4);
-			is_dest_reg = 1;
 			use_mod_rm = 1;
+			is_dest_reg = 0;
 		} else if (0x90 <= fetch_data && fetch_data < 0x98) {
 			/* XCHG r16/32, eAX */
 			op_kind = OP_XCHG;
