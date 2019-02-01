@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "dynamic_memory.h"
+#include "read_raw.h"
 
 #define CF 0x0001
 #define PF 0x0004
@@ -520,6 +521,7 @@ int step(void) {
 }
 
 int main(int argc, char *argv[]) {
+	if (argc >= 2) read_raw(argv[1]);
 	while(step());
 	return 0;
 }

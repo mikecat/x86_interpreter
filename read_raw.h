@@ -1,0 +1,6 @@
+#ifndef READ_RAW_H_GUARD_95F628BF_872A_4DDA_94DF_48A937FE9580
+#define READ_RAW_H_GUARD_95F628BF_872A_4DDA_94DF_48A937FE9580
+
+int read_raw(const char* filename);
+
+#endif
