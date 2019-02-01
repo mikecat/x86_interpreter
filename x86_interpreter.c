@@ -451,6 +451,16 @@ int step(void) {
 			} else {
 				imm_value = 0;
 			}
+		} else if (fetch_data == 0xC6 || fetch_data == 0xC7) {
+			/* MOV r, imm */
+			op_kind = OP_MOV;
+			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
+			use_mod_rm = 1;
+			modrm_disable_src = 1;
+			is_dest_reg = 0;
+			use_imm = 1;
+			src_kind = OP_KIND_IMM;
+			need_dest_value = 1;
 		} else if (fetch_data == 0xC9) {
 			/* LEAVE */
 			op_kind = OP_LEAVE;
