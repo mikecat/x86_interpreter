@@ -101,6 +101,7 @@ int step(void) {
 		OP_XCHG,
 		OP_MOV,
 		OP_LEA,
+		OP_INCDEC,
 		OP_PUSH,
 		OP_POP,
 		OP_PUSHA,
@@ -113,7 +114,6 @@ int step(void) {
 		OP_ADC,
 		OP_SUB,
 		OP_SBB,
-		OP_INCDEC,
 		OP_AND,
 		OP_OR,
 		OP_XOR,
@@ -238,8 +238,7 @@ int step(void) {
 			need_dest_value = 1;
 		} else if (0x40 <= fetch_data && fetch_data < 0x50) {
 			/* INC/DEC */
-			op_kind = OP_ARITIMETIC;
-			op_aritimetic_kind = OP_INCDEC;
+			op_kind = OP_INCDEC;
 			op_width = (is_data_16bit ? 2 : 4);
 			use_mod_rm = 0;
 			src_kind = OP_KIND_IMM;
