@@ -127,6 +127,13 @@ int step(void) {
 		OP_TEST,
 		OP_READ_MODRM /* mod r/mの値を見て演算の種類を決める */
 	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
+	enum {
+		OP_STR_MOV,
+		OP_STR_CMP,
+		OP_STR_STO,
+		OP_STR_LOD,
+		OP_STR_SCA
+	} op_string_kind = OP_STR_MOV; /* ストリング命令の種類 */
 	int op_width = 1; /* オペランドのバイト数 */
 	int jmp_take = 0; /* ジャンプを行うか */
 	int use_mod_rm = 0; /* mod r/mを使うか */
@@ -380,6 +387,17 @@ int step(void) {
 			op_width = 1;
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
+		} else if (0xA4 <= fetch_data && fetch_data <= 0xAF && (fetch_data & 0xFE) != 0xA8) {
+			/* ストリング命令 */
+			op_kind = OP_STRING;
+			switch (fetch_data & 0xFE) {
+			case 0xA4: op_string_kind = OP_STR_MOV; break;
+			case 0xA6: op_string_kind = OP_STR_CMP; break;
+			case 0xAA: op_string_kind = OP_STR_STO; break;
+			case 0xAC: op_string_kind = OP_STR_LOD; break;
+			case 0xAE: op_string_kind = OP_STR_SCA; break;
+			}
+			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
