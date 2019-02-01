@@ -291,6 +291,7 @@ int step(void) {
 			case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
 			}
 			if (fetch_data & 0x01) jmp_take = !jmp_take;
+			op_width = 1;
 			use_imm = 1;
 		} else if (0x80 <= fetch_data && fetch_data <= 0x83) {
 			/* 定数との演算 */
