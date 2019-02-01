@@ -609,7 +609,7 @@ int step(void) {
 		int imm_size = one_byte_imm ? 1 : op_width;
 		imm_value = step_memread(&memread_ok, inst_addr, eip, imm_size);
 		if (!memread_ok) return 0;
-		eip += disp_size;
+		eip += imm_size;
 	}
 
 	/* オペランドを読み込む */
