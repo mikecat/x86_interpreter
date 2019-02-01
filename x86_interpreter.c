@@ -273,14 +273,14 @@ int step(void) {
 		} else if (0x84 <= fetch_data && fetch_data <= 0x8B) {
 			/* 演算 */
 			if ((fetch_data & 0xFE) == 0x84) {
-				op_kind = OP_MOV;
+				op_kind = OP_ARITIMETIC;
+				op_aritimetic_kind = OP_TEST;
+				need_dest_value = 1;
 			} else if ((fetch_data & 0xFE) == 0x86) {
 				op_kind = OP_XCHG;
 				need_dest_value = 1;
 			} else {
-				op_kind = OP_ARITIMETIC;
-				op_aritimetic_kind = OP_TEST;
-				need_dest_value = 1;
+				op_kind = OP_MOV;
 			}
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
