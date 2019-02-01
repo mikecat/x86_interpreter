@@ -408,6 +408,14 @@ int step(void) {
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
 			need_dest_value = 1;
+		} else if (0xB0 <= fetch_data && fetch_data <= 0xBF) {
+			/* MOV r, imm */
+			op_kind = OP_MOV;
+			op_width = (fetch_data & 0x08 ? (is_data_16bit ? 2 : 4) : 1);
+			use_imm = 1;
+			src_kind = OP_KIND_IMM;
+			dest_kind = OP_KIND_REG;
+			dest_reg_index = fetch_data & 0x07;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
