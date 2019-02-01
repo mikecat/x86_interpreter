@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O2
+CFLAGS=-O2 -Wall -Wextra
 
 TARGET=x86_interpreter
 
