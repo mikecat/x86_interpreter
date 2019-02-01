@@ -76,8 +76,8 @@ int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
 	int i;
 	for (i = 0; i < size; i++) {
 		uint32_t this_addr = addr + i;
-		uint8_t value;
-		if (!memory_access(&value, this_addr, (value >> (i * 8)) & 0xff, 1)) {
+		uint8_t dummy_read;
+		if (!memory_access(&dummy_read, this_addr, (value >> (i * 8)) & 0xff, 1)) {
 			fprintf(stderr, "failed to write memory %08"PRIx32" at %08"PRIx32"\n\n", this_addr, inst_addr);
 			print_regs(stderr);
 			return 0;
