@@ -47,9 +47,49 @@ int memory_access(uint8_t* data_read, uint32_t addr, uint8_t data, int we) {
 	}
 }
 
+uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, int size) {
+	uint32_t res = 0;
+	int i;
+	for (i = 0; i < size; i++) {
+		uint32_t this_addr = addr + i;
+		uint8_t value;
+		if (!memory_access(&value, this_addr, 0, 0)) {
+			fprintf(stderr, "failed to read memory %08"PRIx32" at %08"PRIx32"\n\n", this_addr, inst_addr);
+			print_regs(stderr);
+			*success = 0;
+			return 0;
+		}
+		res |= value << (i * 8);
+	}
+	if (size < 4) {
+		if (res & (UINT32_C(0x80) << ((size - 1) * 8))) {
+			res |= UINT32_C(0xffffffff) << (size * 8);
+		} else {
+			res &= UINT32_C(0xffffffff) >> ((4 - size) * 8);
+		}
+	}
+	*success = 1;
+	return res;
+}
+
+int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
+	int i;
+	for (i = 0; i < size; i++) {
+		uint32_t this_addr = addr + i;
+		uint8_t value;
+		if (!memory_access(&value, this_addr, (value >> (i * 8)) & 0xff, 1)) {
+			fprintf(stderr, "failed to write memory %08"PRIx32" at %08"PRIx32"\n\n", this_addr, inst_addr);
+			print_regs(stderr);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int step(void) {
 	uint32_t inst_addr = eip; /* エラー時の検証用 */
 	uint8_t fetch_data;
+	int memread_ok;
 
 	int is_data_16bit = 0;
 	int is_addr_16bit = 0;
@@ -105,17 +145,11 @@ int step(void) {
 
 	uint32_t imm_value = 0; /* 即値の値 */
 
-#define LOAD_MEMORY(dst, addr) \
-	if (!memory_access(&dst, addr, 0, 0)) { \
-		fprintf(stderr, "failed to read memory %08"PRIx32" at %08"PRIx32"\n\n", addr, inst_addr); \
-		print_regs(stderr); \
-		return 0; \
-	}
-
 	/* プリフィックスを解析する */
 	for(;;) {
 		/* 命令フェッチ */
-		LOAD_MEMORY(fetch_data, eip)
+		fetch_data = step_memread(&memread_ok, inst_addr, eip, 1);
+		if (!memread_ok) return 0;
 		eip++;
 		/* プリフィックスか判定 */
 		if (fetch_data == 0x26 || /* ES override */
@@ -327,8 +361,8 @@ int step(void) {
 	int modrm_is_mem = 0; /* mod r/m中のmod r/mがメモリか */
 
 	if (use_mod_rm) {
-		uint8_t mod_rm = 0;
-		LOAD_MEMORY(mod_rm, eip)
+		uint8_t mod_rm = step_memread(&memread_ok, inst_addr, eip, 1);
+		if (!memread_ok) return 0;
 		eip++;
 
 		int mod = (mod_rm >> 6) & 3;
@@ -422,8 +456,8 @@ int step(void) {
 
 	/* SIBを解析する */
 	if (use_sib) {
-		uint8_t sib = 0;
-		LOAD_MEMORY(sib, eip)
+		uint8_t sib = step_memread(&memread_ok, inst_addr, eip, 1);
+		if (!memread_ok) return 0;
 		eip++;
 
 		int ss  = (sib >> 6) & 3;
@@ -448,16 +482,9 @@ int step(void) {
 	/* dispを解析する */
 	uint32_t disp = 0;
 	if (disp_size > 0) {
-		int i;
-		uint32_t disp_sign_extend = UINT32_C(0xffffffff);
-		uint8_t last_fetch = 0;
-		for (i = 0; i < disp_size; i++) {
-			LOAD_MEMORY(last_fetch, eip)
-			eip++;
-			disp_sign_extend <<= 8;
-			disp |= last_fetch << (i * 8);
-		}
-		if (last_fetch & 0x80) disp |= disp_sign_extend;
+		disp = step_memread(&memread_ok, inst_addr, eip, disp_size);
+		if (!memread_ok) return 0;
+		eip += disp_size;
 	}
 
 	/* mod r/m、sib、dispに基づき、オペランドを決定する */
@@ -504,17 +531,9 @@ int step(void) {
 	/* 即値を解析する */
 	if (use_imm) {
 		int imm_size = one_byte_imm ? 1 : op_width;
-		int i;
-		uint32_t imm_sign_extend = UINT32_C(0xffffffff);
-		uint8_t last_fetch = 0;
-		imm_value = 0;
-		for (i = 0; i < imm_size; i++) {
-			LOAD_MEMORY(last_fetch, eip)
-			eip++;
-			imm_sign_extend <<= 8;
-			imm_value |= last_fetch << (i * 8);
-		}
-		if (last_fetch & 0x80) imm_value |= imm_sign_extend;
+		imm_value = step_memread(&memread_ok, inst_addr, eip, imm_size);
+		if (!memread_ok) return 0;
+		eip += disp_size;
 	}
 
 	/* オペランドを読み込む */
@@ -526,14 +545,8 @@ int step(void) {
 		src_value = imm_value;
 		break;
 	case OP_KIND_MEM:
-		{
-			int i;
-			for (i = 0; i < op_width; i++) {
-				uint8_t v;
-				LOAD_MEMORY(v, src_addr + i);
-				src_value |= v << (i * 8);
-			}
-		}
+		src_value = step_memread(&memread_ok, inst_addr, src_addr, op_width);
+		if (!memread_ok) return 0;
 		break;
 	case OP_KIND_REG:
 		src_value = regs[src_reg_index];
@@ -556,14 +569,8 @@ int step(void) {
 			dest_value = imm_value;
 			break;
 		case OP_KIND_MEM:
-			{
-				int i;
-				for (i = 0; i < op_width; i++) {
-					uint8_t v;
-					LOAD_MEMORY(v, dest_addr + i);
-					dest_value |= v << (i * 8);
-				}
-			}
+			dest_value = step_memread(&memread_ok, inst_addr, dest_addr, op_width);
+			if (!memread_ok) return 0;
 			break;
 		case OP_KIND_REG:
 			dest_value = regs[dest_reg_index];
@@ -586,7 +593,6 @@ int step(void) {
 	/* 計算結果を書き込む */
 
 	return 1;
-#undef LOAD_MEMORY
 }
 
 int main(int argc, char *argv[]) {
