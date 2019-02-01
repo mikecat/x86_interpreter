@@ -101,6 +101,7 @@ int step(void) {
 	uint32_t dest_addr = 0;
 	int dest_kind = OP_KIND_IMM;
 	int dest_reg_index = 0;
+	int need_dest_value = 0;
 
 	uint32_t imm_value = 0; /* 即値の値 */
 
@@ -200,6 +201,7 @@ int step(void) {
 			case 6: op_aritimetic_kind = OP_XOR; break;
 			case 7: op_aritimetic_kind = OP_CMP; break;
 			}
+			need_dest_value = 1;
 		} else if (0x40 <= fetch_data && fetch_data < 0x50) {
 			/* INC/DEC */
 			op_kind = OP_ARITIMETIC;
@@ -210,6 +212,7 @@ int step(void) {
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = fetch_data & 0x07;
 			imm_value = (fetch_data < 0x48 ? 1 : -1);
+			need_dest_value = 1;
 		} else if (0x50 <= fetch_data && fetch_data < 0x60) {
 			/* PUSH/POP */
 			op_width = (is_data_16bit ? 2 : 4);
@@ -266,15 +269,18 @@ int step(void) {
 			use_imm = 1;
 			src_kind = OP_KIND_IMM;
 			if (fetch_data == 0x83) one_byte_imm = 1;
+			need_dest_value = 1;
 		} else if (0x84 <= fetch_data && fetch_data <= 0x8B) {
 			/* 演算 */
 			if ((fetch_data & 0xFE) == 0x84) {
 				op_kind = OP_MOV;
 			} else if ((fetch_data & 0xFE) == 0x86) {
 				op_kind = OP_XCHG;
+				need_dest_value = 1;
 			} else {
 				op_kind = OP_ARITIMETIC;
 				op_aritimetic_kind = OP_TEST;
+				need_dest_value = 1;
 			}
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
@@ -299,6 +305,7 @@ int step(void) {
 			src_reg_index = (fetch_data & 0x07);
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
+			need_dest_value = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -511,6 +518,68 @@ int step(void) {
 	}
 
 	/* オペランドを読み込む */
+	uint32_t src_value = 0;
+	uint32_t dest_value = 0;
+
+	switch (src_kind) {
+	case OP_KIND_IMM:
+		src_value = imm_value;
+		break;
+	case OP_KIND_MEM:
+		{
+			int i;
+			for (i = 0; i < op_width; i++) {
+				uint8_t v;
+				LOAD_MEMORY(v, src_addr + i);
+				src_value |= v << (i * 8);
+			}
+		}
+		break;
+	case OP_KIND_REG:
+		src_value = regs[src_reg_index];
+		break;
+	case OP_KIND_REG_HIGH8:
+		src_value = regs[src_reg_index] >> 8;
+		break;
+	}
+	if (op_width < 4) {
+		if (src_value & (UINT32_C(0x80) << ((op_width - 1) * 8))) {
+			src_value |= UINT32_C(0xffffffff) << (op_width * 8);
+		} else {
+			src_value &= UINT32_C(0xffffffff) >> ((4 - op_width) * 8);
+		}
+	}
+
+	if (need_dest_value) {
+		switch (dest_kind) {
+		case OP_KIND_IMM:
+			dest_value = imm_value;
+			break;
+		case OP_KIND_MEM:
+			{
+				int i;
+				for (i = 0; i < op_width; i++) {
+					uint8_t v;
+					LOAD_MEMORY(v, dest_addr + i);
+					dest_value |= v << (i * 8);
+				}
+			}
+			break;
+		case OP_KIND_REG:
+			dest_value = regs[dest_reg_index];
+			break;
+		case OP_KIND_REG_HIGH8:
+			dest_value = regs[dest_reg_index] >> 8;
+			break;
+		}
+		if (op_width < 4) {
+			if (dest_value & (UINT32_C(0x80) << ((op_width - 1) * 8))) {
+				dest_value |= UINT32_C(0xffffffff) << (op_width * 8);
+			} else {
+				dest_value &= UINT32_C(0xffffffff) >> ((4 - op_width) * 8);
+			}
+		}
+	}
 
 	/* 計算をする */
 
