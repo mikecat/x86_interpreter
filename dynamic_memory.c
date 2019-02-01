@@ -39,7 +39,7 @@ void dmemory_read(void* dest, uint32_t addr, uint32_t size) {
 		for (j = jmin; j <= jmax; j++) {
 			if (read_size > size) read_size = size;
 			if (aut_table[i] != NULL && (*aut_table[i])[j] != NULL) {
-				memcpy(destu8, (*aut_table[i])[j] + read_offset, read_size);
+				memcpy(destu8, *(*aut_table[i])[j] + read_offset, read_size);
 			}
 			destu8 += read_size;
 			size -= read_size;
@@ -63,7 +63,7 @@ void dmemory_write(void* src, uint32_t addr, uint32_t size) {
 		for (j = jmin; j <= jmax; j++) {
 			if (write_size > size) write_size = size;
 			if (aut_table[i] != NULL && (*aut_table[i])[j] != NULL) {
-				memcpy((*aut_table[i])[j] + write_offset, srcu8, write_size);
+				memcpy(*(*aut_table[i])[j] + write_offset, srcu8, write_size);
 			}
 			srcu8 += write_size;
 			size -= write_size;
@@ -81,17 +81,18 @@ void dmemory_allocate(uint32_t addr, uint32_t size) {
 		int jmin = (i == fidx_s ? sidx_s : 0);
 		int jmax = (i == fidx_e ? sidx_e : SECOND_TABLE_SIZE - 1);
 		if (aut_table[i] == NULL) {
-			aut_table[i] = malloc(sizeof(*(*aut_table[i])));
+			aut_table[i] = malloc(sizeof(*aut_table[i]));
 			if (aut_table[i] == NULL) {
 				perror("malloc");
 				exit(1);
 			}
+			for (j = 0; j < SECOND_TABLE_SIZE; j++) (*aut_table[i])[j] = NULL;
 		}
 		for (j = jmin; j <= jmax; j++) {
 			if ((*aut_table[i])[j] == NULL) {
-				(*aut_table[i])[j] = malloc(sizeof(*(*aut_table[i])[j]));
+				(*aut_table[i])[j] = calloc(1, sizeof(*(*aut_table[i])[j]));
 				if ((*aut_table[i])[j] == NULL) {
-					perror("malloc");
+					perror("calloc");
 					exit(1);
 				}
 			}
