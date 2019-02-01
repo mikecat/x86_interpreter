@@ -116,16 +116,10 @@ int step(void) {
 		OP_LAHF
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
-		OP_ADD,
-		OP_ADC,
-		OP_SUB,
-		OP_SBB,
-		OP_AND,
-		OP_OR,
-		OP_XOR,
-		OP_CMP,
-		OP_TEST,
-		OP_READ_MODRM /* mod r/mの値を見て演算の種類を決める */
+		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST,
+		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
+		OP_READ_MODRM, /* mod r/mの値を見て演算の種類を決める */
+		OP_READ_MODRM_SHIFT /* mod r/mの値を見て演算の種類を決める(シフト系) */
 	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
 	enum {
 		OP_STR_MOV,
@@ -138,6 +132,7 @@ int step(void) {
 	int jmp_take = 0; /* ジャンプを行うか */
 	int use_mod_rm = 0; /* mod r/mを使うか */
 	int is_dest_reg = 0; /* mod r/mを使うとき、結果の書き込み先がr/mではなくregか */
+	int modrm_disable_src = 0; /* mod r/mを使う時、srcをmod r/mから設定するのをやめるか */
 	int use_imm = 0; /* 即値を使うか */
 	int one_byte_imm = 0; /* 即値が1バイトか(偽 = オペランドのサイズ) */
 
@@ -312,6 +307,7 @@ int step(void) {
 			op_aritimetic_kind = OP_READ_MODRM;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
+			modrm_disable_src = 1;
 			is_dest_reg = 0;
 			use_imm = 1;
 			src_kind = OP_KIND_IMM;
@@ -343,6 +339,7 @@ int step(void) {
 			op_kind = OP_POP;
 			op_width = (is_data_16bit ? 2 : 4);
 			use_mod_rm = 1;
+			modrm_disable_src = 1;
 			is_dest_reg = 0;
 		} else if (0x90 <= fetch_data && fetch_data < 0x98) {
 			/* XCHG r16/32, eAX */
@@ -416,6 +413,30 @@ int step(void) {
 			src_kind = OP_KIND_IMM;
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = fetch_data & 0x07;
+		} else if (fetch_data == 0xC0 || fetch_data == 0xC1 || (0xD0 <= fetch_data && fetch_data <= 0xD3)) {
+			/* シフト */
+			op_kind = OP_ARITIMETIC;
+			op_aritimetic_kind = OP_READ_MODRM_SHIFT;
+			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
+			use_mod_rm = 1;
+			modrm_disable_src = 1;
+			is_dest_reg = 0;
+			switch (fetch_data & 0xFE) {
+			case 0xC0:
+				use_imm = 1;
+				src_kind = OP_KIND_IMM;
+				one_byte_imm = 1;
+				break;
+			case 0xD0:
+				src_kind = OP_KIND_IMM;
+				imm_value = 1;
+				break;
+			case 0xD2:
+				src_kind = OP_KIND_REG;
+				src_reg_index = ECX;
+				break;
+			}
+			need_dest_value = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -449,6 +470,12 @@ int step(void) {
 			/* 「mod r/mを見て決定する」演算を決定する */
 			static const int kind_table[] = {
 				OP_ADD, OP_OR, OP_ADC, OP_SBB, OP_AND, OP_SUB, OP_XOR, OP_CMP
+			};
+			op_aritimetic_kind = kind_table[reg];
+		} else if (op_aritimetic_kind == OP_READ_MODRM_SHIFT) {
+			/* 「mod r/mを見て決定する」シフト系の演算を決定する */
+			static const int kind_table[] = {
+				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
 			};
 			op_aritimetic_kind = kind_table[reg];
 		}
@@ -581,7 +608,7 @@ int step(void) {
 
 		/* オペランドの割り当ての決定 */
 		/* srcの決定 */
-		if (!use_imm) {
+		if (!modrm_disable_src) {
 			if (is_dest_reg) {
 				/* destがregなので、srcはmod r/m */
 				src_kind = modrm_kind;
