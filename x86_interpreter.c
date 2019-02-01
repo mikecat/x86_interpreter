@@ -106,8 +106,14 @@ int step(void) {
 		OP_POP,
 		OP_PUSHA,
 		OP_POPA,
+		OP_PUSHF,
+		OP_POPF,
 		OP_STRING,
-		OP_JUMP
+		OP_JUMP,
+		OP_CBW,
+		OP_CWD,
+		OP_SAHF,
+		OP_LAHF
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD,
@@ -340,6 +346,40 @@ int step(void) {
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
 			need_dest_value = 1;
+		} else if (fetch_data == 0x98) {
+			/* CBW/CWDE */
+			op_kind = OP_CBW;
+			op_width = (is_data_16bit ? 2 : 4);
+			src_kind = OP_KIND_REG;
+			src_reg_index = EAX;
+			dest_kind = OP_KIND_REG;
+			dest_reg_index = EAX;
+		} else if (fetch_data == 0x99) {
+			/* CWD/CDQ */
+			op_kind = OP_CWD;
+			op_width = (is_data_16bit ? 2 : 4);
+			src_kind = OP_KIND_REG;
+			src_reg_index = EAX;
+			dest_kind = OP_KIND_REG;
+			dest_reg_index = EDX;
+		} else if (fetch_data == 0x9C) {
+			/* PUSHF */
+			op_kind = OP_PUSHF;
+		} else if (fetch_data == 0x9D) {
+			/* POPF */
+			op_kind = OP_POPF;
+		} else if (fetch_data == 0x9E) {
+			/* SAHF */
+			op_kind = OP_SAHF;
+			op_width = 1;
+			src_kind = OP_KIND_REG;
+			src_reg_index = EAX;
+		} else if (fetch_data == 0x9F) {
+			/* LAHF */
+			op_kind = OP_LAHF;
+			op_width = 1;
+			dest_kind = OP_KIND_REG;
+			dest_reg_index = EAX;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
