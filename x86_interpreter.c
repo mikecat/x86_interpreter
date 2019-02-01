@@ -113,7 +113,12 @@ int step(void) {
 		OP_CBW,
 		OP_CWD,
 		OP_SAHF,
-		OP_LAHF
+		OP_LAHF,
+		OP_RETN,
+		OP_LEAVE,
+		OP_INT,
+		OP_INTO,
+		OP_IRET
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST,
@@ -437,6 +442,33 @@ int step(void) {
 				break;
 			}
 			need_dest_value = 1;
+		} else if (fetch_data == 0xC2 || fetch_data == 0xC3) {
+			/* RETN */
+			op_kind = OP_RETN;
+			op_width = 2;
+			if (fetch_data == 0xC2) {
+				use_imm = 1;
+			} else {
+				imm_value = 0;
+			}
+		} else if (fetch_data == 0xC9) {
+			/* LEAVE */
+			op_kind = OP_LEAVE;
+		} else if (fetch_data == 0xCC || fetch_data == 0xCD) {
+			/* INT */
+			op_kind = OP_INT;
+			op_width = 1;
+			if (fetch_data == 0xCC) {
+				imm_value = 3;
+			} else {
+				use_imm = 1;
+			}
+		} else if (fetch_data == 0xCE) {
+			/* INTO */
+			op_kind = OP_INTO;
+		} else if (fetch_data == 0xCF) {
+			/* LEAVE */
+			op_kind = OP_IRET;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
