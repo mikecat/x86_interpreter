@@ -398,6 +398,16 @@ int step(void) {
 			case 0xAE: op_string_kind = OP_STR_SCA; break;
 			}
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
+		} else if (fetch_data == 0xA8 || fetch_data == 0xA9) {
+			/* TEST AL/AX/EAX, imm8/imm16/imm32 */
+			op_kind = OP_ARITIMETIC;
+			op_aritimetic_kind = OP_TEST;
+			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
+			use_imm = 1;
+			src_kind = OP_KIND_IMM;
+			dest_kind = OP_KIND_REG;
+			dest_reg_index = EAX;
+			need_dest_value = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
