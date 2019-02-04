@@ -875,7 +875,7 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_STRING)
 		break;
 	case OP_JUMP:
-		NOT_IMPLEMENTED(OP_JUMP)
+		if (jmp_take) eip += src_value;
 		break;
 	case OP_CBW:
 		NOT_IMPLEMENTED(OP_CBW)
