@@ -3,7 +3,7 @@ CFLAGS=-O2 -Wall -Wextra
 
 TARGET=x86_interpreter
 
-OBJS=x86_interpreter.o dynamic_memory.o read_raw.o
+OBJS=x86_interpreter.o dynamic_memory.o read_file.o read_raw.o
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^
