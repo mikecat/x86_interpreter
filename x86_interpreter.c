@@ -841,7 +841,16 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_LEA)
 		break;
 	case OP_INCDEC:
-		NOT_IMPLEMENTED(OP_INCDEC)
+		{
+			uint32_t sign_mask = (UINT32_C(1) << (op_width * 8 - 1));
+			uint32_t next_eflags = eflags & ~(OF | SF | ZF | AF | PF);
+			result = dest_value + imm_value;
+			result_write = 1;
+			if ((dest_value & sign_mask) == (src_value & sign_mask) &&
+			(result & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+			if (result & sign_mask) next_eflags |= SF;
+			if ((result & ((UINT64_C(1) << (op_width * 8)) - 1)) == 0) next_eflags |= ZF;
+		}
 		break;
 	case OP_PUSH:
 		{
