@@ -827,6 +827,7 @@ int step(void) {
 				if (result64 & (1 << i)) par++;
 			}
 			if (par % 2 == 0) next_eflags |= PF;
+			result = (uint32_t)result64;
 			eflags = next_eflags;
 		}
 		break;
