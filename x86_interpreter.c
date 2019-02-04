@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include "dynamic_memory.h"
 #include "read_raw.h"
@@ -749,7 +750,21 @@ int step(void) {
 }
 
 int main(int argc, char *argv[]) {
-	if (argc >= 2) read_raw(argv[1]);
-	while(step());
+	int i;
+	int enable_trace = 0;
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "--raw") == 0) {
+			if (++i < argc) { if (!read_raw(argv[i])) return 1; }
+			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
+		} else if (strcmp(argv[i], "--trace") == 0) {
+			enable_trace = 1;
+		}
+	}
+	while(step()) {
+		if (enable_trace) {
+			print_regs(stdout);
+			putchar('\n');
+		}
+	}
 	return 0;
 }
