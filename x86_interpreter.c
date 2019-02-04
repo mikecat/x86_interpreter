@@ -759,7 +759,8 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_XCHG)
 		break;
 	case OP_MOV:
-		NOT_IMPLEMENTED(OP_MOV)
+		result = src_value;
+		result_write = 1;
 		break;
 	case OP_LEA:
 		NOT_IMPLEMENTED(OP_LEA)
