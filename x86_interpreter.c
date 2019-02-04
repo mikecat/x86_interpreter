@@ -863,6 +863,9 @@ int main(int argc, char *argv[]) {
 			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
+		} else {
+			fprintf(stderr, "unknown command line option %s\n", argv[i]);
+			return 1;
 		}
 	}
 	if (enable_trace) {
