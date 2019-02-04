@@ -743,6 +743,86 @@ int step(void) {
 	}
 
 	/* 計算をする */
+	uint32_t result = 0;
+	int result_write = 0;
+
+#define NOT_IMPLEMENTED(name) \
+	fprintf(stderr, "operation " #name " not implemented at %08"PRIx32"\n", inst_addr); \
+	print_regs(stderr); \
+	return 0;
+
+	switch (op_kind) {
+	case OP_ARITIMETIC:
+		NOT_IMPLEMENTED(OP_ARITIMETIC)
+		break;
+	case OP_XCHG:
+		NOT_IMPLEMENTED(OP_XCHG)
+		break;
+	case OP_MOV:
+		NOT_IMPLEMENTED(OP_MOV)
+		break;
+	case OP_LEA:
+		NOT_IMPLEMENTED(OP_LEA)
+		break;
+	case OP_INCDEC:
+		NOT_IMPLEMENTED(OP_INCDEC)
+		break;
+	case OP_PUSH:
+		NOT_IMPLEMENTED(OP_PUSH)
+		break;
+	case OP_POP:
+		NOT_IMPLEMENTED(OP_POP)
+		break;
+	case OP_PUSHA:
+		NOT_IMPLEMENTED(OP_PUSHA)
+		break;
+	case OP_POPA:
+		NOT_IMPLEMENTED(OP_POPA)
+		break;
+	case OP_PUSHF:
+		NOT_IMPLEMENTED(OP_PUSHF)
+		break;
+	case OP_POPF:
+		NOT_IMPLEMENTED(OP_POPF)
+		break;
+	case OP_STRING:
+		NOT_IMPLEMENTED(OP_STRING)
+		break;
+	case OP_JUMP:
+		NOT_IMPLEMENTED(OP_JUMP)
+		break;
+	case OP_CBW:
+		NOT_IMPLEMENTED(OP_CBW)
+		break;
+	case OP_CWD:
+		NOT_IMPLEMENTED(OP_CWD)
+		break;
+	case OP_SAHF:
+		NOT_IMPLEMENTED(OP_SAHF)
+		break;
+	case OP_LAHF:
+		NOT_IMPLEMENTED(OP_LAHF)
+		break;
+	case OP_RETN:
+		NOT_IMPLEMENTED(OP_RETN)
+		break;
+	case OP_LEAVE:
+		NOT_IMPLEMENTED(OP_LEAVE)
+		break;
+	case OP_INT:
+		NOT_IMPLEMENTED(OP_INT)
+		break;
+	case OP_INTO:
+		NOT_IMPLEMENTED(OP_INTO)
+		break;
+	case OP_IRET:
+		NOT_IMPLEMENTED(OP_IRET)
+		break;
+	default:
+		fprintf(stderr, "unknown operation kind %d at %08"PRIx32"\n", (int)op_kind, inst_addr);
+		print_regs(stderr);
+		return 0;
+	}
 
 	/* 計算結果を書き込む */
 
