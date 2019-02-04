@@ -768,7 +768,17 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_INCDEC)
 		break;
 	case OP_PUSH:
-		NOT_IMPLEMENTED(OP_PUSH)
+		{
+			uint32_t addr = regs[ESP];
+			if (is_addr_16bit) addr &= 0xffff;
+			addr -= op_width;
+			if (!step_memwrite(inst_addr, addr, src_value, op_width)) return 0;
+			if (is_addr_16bit) {
+				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (addr & 0xffff);
+			} else {
+				regs[ESP] = addr;
+			}
+		}
 		break;
 	case OP_POP:
 		NOT_IMPLEMENTED(OP_POP)
