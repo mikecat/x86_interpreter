@@ -473,6 +473,7 @@ int step(void) {
 		} else if (fetch_data == 0xC9) {
 			/* LEAVE */
 			op_kind = OP_LEAVE;
+			op_width = is_data_16bit ? 2 : 4;
 		} else if (fetch_data == 0xCC || fetch_data == 0xCD) {
 			/* INT */
 			op_kind = OP_INT;
@@ -903,7 +904,29 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_RETN)
 		break;
 	case OP_LEAVE:
-		NOT_IMPLEMENTED(OP_LEAVE)
+		{
+			uint32_t next_ebp = 0;
+			uint32_t next_esp = 0;
+			if (is_addr_16bit) {
+				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (regs[EBP] & 0xffff);
+			} else {
+				regs[ESP] = regs[EBP];
+			}
+			next_ebp = step_memread(&memread_ok, inst_addr,
+				is_addr_16bit ? regs[ESP] & 0xffff : regs[ESP], op_width);
+			if (!memread_ok) return 0;
+			next_esp = regs[ESP] + op_width;
+			if (is_addr_16bit) {
+				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (next_esp & 0xffff);
+			} else {
+				regs[ESP] = next_esp;
+			}
+			if (op_width == 2) {
+				regs[EBP] = (regs[EBP] & UINT32_C(0xffff0000)) | (next_ebp & 0xffff);
+			} else {
+				regs[EBP] = next_ebp;
+			}
+		}
 		break;
 	case OP_INT:
 		NOT_IMPLEMENTED(OP_INT)
