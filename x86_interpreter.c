@@ -753,7 +753,82 @@ int step(void) {
 
 	switch (op_kind) {
 	case OP_ARITIMETIC:
-		NOT_IMPLEMENTED(OP_ARITIMETIC)
+		{
+			uint64_t result64 = 0;
+			uint64_t sign_mask = (UINT64_C(1) << (op_width * 8 - 1));
+			uint32_t next_eflags = eflags & ~(OF | SF | ZF | AF | PF | CF);
+			int par = 0, i;
+			result_write = 1;
+			switch (op_aritimetic_kind) {
+			case OP_ADD:
+				result64 = (uint64_t)dest_value + (uint64_t)src_value;
+				if ((dest_value & sign_mask) == (src_value & sign_mask) &&
+				(result64 & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+				break;
+			case OP_ADC:
+				result64 = (uint64_t)dest_value + (uint64_t)src_value + (eflags & CF ? 1 : 0);
+				if ((dest_value & sign_mask) == (src_value & sign_mask) &&
+				(result64 & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+				break;
+			case OP_SUB:
+				result64 = (uint64_t)dest_value - (uint64_t)src_value;
+				if ((dest_value & sign_mask) == (-src_value & sign_mask) &&
+				(result64 & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+				break;
+			case OP_SBB:
+				result64 = (uint64_t)dest_value - (uint64_t)src_value - (eflags & CF ? 1 : 0);
+				if ((dest_value & sign_mask) == (-src_value & sign_mask) &&
+				(result64 & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+				break;
+			case OP_AND:
+				result64 = dest_value & src_value;
+				break;
+			case OP_OR:
+				result64 = dest_value | src_value;
+				break;
+			case OP_XOR:
+				result64 = dest_value ^ src_value;
+				break;
+			case OP_CMP:
+				result64 = (uint64_t)dest_value - (uint64_t)src_value;
+				if ((dest_value & sign_mask) == (-src_value & sign_mask) &&
+				(result64 & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
+				result_write = 0;
+				break;
+			case OP_TEST:
+				result64 = dest_value & src_value;
+				result_write = 0;
+				break;
+			/*
+			case OP_ROL:
+				break;
+			case OP_ROR:
+				break;
+			case OP_RCL:
+				break;
+			case OP_RCR:
+				break;
+			case OP_SHL:
+				break;
+			case OP_SHR:
+				break;
+			case OP_SAR:
+				break;
+			*/
+			default:
+				fprintf(stderr, "unknown aritimethc %d at %08"PRIx32"\n", (int)op_aritimetic_kind, inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			if (result64 & (UINT64_C(1) << (op_width * 8 - 1))) next_eflags |= SF;
+			if ((result64 & ((UINT64_C(1) << (op_width * 8)) - 1)) == 0) next_eflags |= ZF;
+			if (result64 & (UINT64_C(1) << (op_width * 8))) next_eflags |= CF;
+			for (i = 0; i < 8; i++) {
+				if (result64 & (1 << i)) par++;
+			}
+			if (par % 2 == 0) next_eflags |= PF;
+			eflags = next_eflags;
+		}
 		break;
 	case OP_XCHG:
 		NOT_IMPLEMENTED(OP_XCHG)
