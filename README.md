@@ -17,3 +17,4 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 * [Assembly Programming on x86-64 Linux (05)](http://www.mztn.org/lxasm64/amd05.html)
 * [Assembly Programming on x86-64 Linux (04)](http://www.mztn.org/lxasm64/amd04.html)
 * [Tips　IA32（x86）命令一覧　Jから始まる命令　Jcc命令](http://softwaretechnique.jp/OS_Development/Tips/IA32_Instructions/Jcc.html)
+* [x86 and amd64 instruction reference](https://www.felixcloutier.com/x86/index.html)
