@@ -486,7 +486,7 @@ int step(void) {
 			/* INTO */
 			op_kind = OP_INTO;
 		} else if (fetch_data == 0xCF) {
-			/* LEAVE */
+			/* IRET */
 			op_kind = OP_IRET;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
