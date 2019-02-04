@@ -865,6 +865,10 @@ int main(int argc, char *argv[]) {
 			enable_trace = 1;
 		}
 	}
+	if (enable_trace) {
+		print_regs(stdout);
+		putchar('\n');
+	}
 	while(step()) {
 		if (enable_trace) {
 			print_regs(stdout);
