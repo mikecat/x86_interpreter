@@ -854,20 +854,91 @@ int step(void) {
 	return 1;
 }
 
+int str_to_uint32(uint32_t* out, const char* str) {
+	uint32_t value = 0;
+	uint32_t digit_mult = 0;
+	if (str[0] == '0') {
+		if (str[1] == 'x' || str[1] == 'X') {
+			digit_mult = 16;
+			str += 2;
+		} else if (str[1] == 'b' || str[1]== 'B') {
+			digit_mult = 2;
+			str += 2;
+		} else if (str[1] == '\0') {
+			*out = 0;
+			return 1;
+		} else {
+			digit_mult = 8;
+			str += 1;
+		}
+	} else {
+		digit_mult = 10;
+	}
+	while (*str != '\0') {
+		uint32_t digit_value = 0;
+		if ('0' <= *str && *str <= '9') digit_value = *str - '0';
+		else if ('a' <= *str && *str <= 'z') digit_value = *str - 'a' + 10;
+		else if ('A' <= *str && *str <= 'Z') digit_value = *str - 'A' + 10;
+		else return 0; /* 不正な文字 */
+		if (digit_value >= digit_mult) return 0; /* 進数に対して大きすぎる数字 */
+		if (UINT32_MAX / digit_mult < value) return 0; /* オーバーフロー */
+		value *= digit_mult;
+		if (UINT32_MAX - digit_value < value) return 0; /* オーバーフロー */
+		value += digit_value;
+		str++;
+	}
+	*out = value;
+	return 1;
+}
+
 int main(int argc, char *argv[]) {
 	int i;
 	int enable_trace = 0;
+	uint32_t initial_eip = 0;
+	uint32_t initial_esp = UINT32_C(0xfffff000);
+	uint32_t stack_size = 4096;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--raw") == 0) {
 			if (++i < argc) { if (!read_raw(argv[i])) return 1; }
 			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
+		} else if (strcmp(argv[i], "--eip") == 0) {
+			if (++i < argc) {
+				if (!str_to_uint32(&initial_eip, argv[i])) {
+					fprintf(stderr, "invalid initial eip value %s\n", argv[i]);
+					return 1;
+				}
+			} else { fprintf(stderr, "no eip value for --eip\n"); return 1;}
+		} else if (strcmp(argv[i], "--esp") == 0) {
+			if (++i < argc) {
+				if (!str_to_uint32(&initial_esp, argv[i])) {
+					fprintf(stderr, "invalid initial esp value %s\n", argv[i]);
+					return 1;
+				}
+			} else { fprintf(stderr, "no esp value for --esp\n"); return 1;}
+		} else if (strcmp(argv[i], "--stacksize") == 0) {
+			if (++i < argc) {
+				if (!str_to_uint32(&stack_size, argv[i])) {
+					fprintf(stderr, "invalid stack size %s\n", argv[i]);
+					return 1;
+				}
+			} else { fprintf(stderr, "no stack size for --stacksize\n"); return 1;}
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
 		}
 	}
+	if (stack_size > initial_esp) {
+		fprintf(stderr, "stack too big compared to esp\n");
+		return 1;
+	}
+
+	eip = initial_eip;
+	eflags = UINT32_C(0x00000002);
+	regs[ESP] = initial_esp;
+	dmemory_allocate(initial_esp - stack_size, stack_size);
+
 	if (enable_trace) {
 		print_regs(stdout);
 		putchar('\n');
