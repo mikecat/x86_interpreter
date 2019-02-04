@@ -560,9 +560,9 @@ int step(void) {
 			}
 		} else {
 			/* メモリオペランド */
+			modrm_is_mem = 1;
 			if (is_addr_16bit) {
 				/* 16-bit mod r/m */
-				modrm_is_mem = 1;
 				if (mod == 0 && rm == 5) {
 					modrm_no_reg = 1;
 					disp_size = 2;
