@@ -901,7 +901,12 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_LAHF)
 		break;
 	case OP_RETN:
-		NOT_IMPLEMENTED(OP_RETN)
+		{
+			uint32_t next_eip = step_memread(&memread_ok, inst_addr, regs[ESP], 4);
+			if (!memread_ok) return 0;
+			eip = next_eip;
+			regs[ESP] += 4 + imm_value;
+		}
 		break;
 	case OP_LEAVE:
 		{
