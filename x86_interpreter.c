@@ -825,6 +825,31 @@ int step(void) {
 	}
 
 	/* 計算結果を書き込む */
+	if (result_write) {
+		switch (dest_kind) {
+		case OP_KIND_IMM:
+			fprintf(stderr, "tried to write into immediate value at %08"PRIx32"\n", inst_addr);
+			print_regs(stderr);
+			return 0;
+		case OP_KIND_MEM:
+			if (!step_memwrite(inst_addr, dest_addr, result, op_width)) return 0;
+			break;
+		case OP_KIND_REG:
+			{
+				uint32_t mask = (op_width >= 4 ? 0 : UINT32_C(0xffffffff) << (op_width * 8));
+				regs[dest_reg_index] = (regs[dest_reg_index] & mask) | (result & ~mask);
+			}
+			break;
+		case OP_KIND_REG_HIGH8:
+			if (op_width != 1) {
+				fprintf(stderr, "tried to write high register with wigth other than 1 at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			regs[dest_reg_index] = (regs[dest_reg_index] & UINT32_C(0xffff00ff)) | ((result & 0xff) << 8);
+			break;
+		}
+	}
 
 	return 1;
 }
