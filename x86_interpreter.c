@@ -104,6 +104,11 @@ int step(void) {
 		OP_MOV,
 		OP_LEA,
 		OP_INCDEC,
+		OP_NOT,
+		OP_MUL,
+		OP_IMUL,
+		OP_DIV,
+		OP_IDIV,
 		OP_PUSH,
 		OP_POP,
 		OP_PUSHA,
@@ -131,10 +136,11 @@ int step(void) {
 		OP_CLEAR_FLAG,
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
-		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST,
+		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST, OP_NEG,
 		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
 		OP_READ_MODRM, /* mod r/mの値を見て演算の種類を決める */
-		OP_READ_MODRM_SHIFT /* mod r/mの値を見て演算の種類を決める(シフト系) */
+		OP_READ_MODRM_SHIFT, /* mod r/mの値を見て演算の種類を決める(シフト系) */
+		OP_READ_MODRM_MUL /* mod r/mの値を見て演算の種類を決める(MUL系) */
 	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
 	enum {
 		OP_STR_MOV,
@@ -567,6 +573,11 @@ int step(void) {
 			case 0xFA: imm_value = IF; break;
 			case 0xFC: imm_value = DF; break;
 			}
+		} else if ((fetch_data & 0xFE) == 0xF6) {
+			/* TEST/NOT/NEG/MUL/IMUL/DIV/IDIV */
+			op_kind = OP_ARITIMETIC;
+			op_aritimetic_kind = OP_READ_MODRM_MUL;
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -608,6 +619,24 @@ int step(void) {
 				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
 			};
 			op_aritimetic_kind = kind_table[reg];
+		} else if (op_aritimetic_kind == OP_READ_MODRM_MUL) {
+			/* 「mod r/mを見て決定する」MUL系の演算を決定する */
+			static const int op_table[] = {
+				OP_ARITIMETIC, OP_ARITIMETIC, OP_NOT, OP_ARITIMETIC,
+				OP_MUL, OP_IMUL, OP_DIV, OP_IDIV
+			};
+			op_kind = op_table[reg];
+			if (reg <= 1) {
+				op_aritimetic_kind = OP_TEST;
+			} else if (reg == 3) {
+				op_aritimetic_kind = OP_NEG;
+			}
+			if (reg <= 1) {
+				use_imm = 1;
+				src_kind = OP_KIND_IMM;
+			}
+			if (reg <= 3) need_dest_value = 1;
+			if (4 <= reg) is_dest_reg = 1;
 		}
 
 		if (op_width == 1) {
@@ -879,6 +908,9 @@ int step(void) {
 				result64 = dest_value & src_value;
 				result_write = 0;
 				break;
+			case OP_NEG:
+				result64 = -(uint64_t)dest_value;
+				if ((dest_value & sign_mask) == (result64 & sign_mask) && dest_value != 0) next_eflags |= OF;
 			/*
 			case OP_ROL:
 				break;
@@ -933,6 +965,22 @@ int step(void) {
 			if (result & sign_mask) next_eflags |= SF;
 			if ((result & ((UINT64_C(1) << (op_width * 8)) - 1)) == 0) next_eflags |= ZF;
 		}
+		break;
+	case OP_NOT:
+		result = ~dest_value;
+		result_write = 1;
+		break;
+	case OP_MUL:
+		NOT_IMPLEMENTED(OP_MUL)
+		break;
+	case OP_IMUL:
+		NOT_IMPLEMENTED(OP_IMUL)
+		break;
+	case OP_DIV:
+		NOT_IMPLEMENTED(OP_DIV)
+		break;
+	case OP_IDIV:
+		NOT_IMPLEMENTED(OP_IDIV)
 		break;
 	case OP_PUSH:
 		{
