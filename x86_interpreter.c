@@ -134,7 +134,7 @@ int step(void) {
 	int is_rep_while_zero = 0;
 
 	enum {
-		OP_ARITIMETIC,
+		OP_ARITHMETIC,
 		OP_XCHG,
 		OP_MOV,
 		OP_MOVZX,
@@ -175,7 +175,7 @@ int step(void) {
 		OP_CMC,
 		OP_SET_FLAG,
 		OP_CLEAR_FLAG,
-	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
+	} op_kind = OP_ARITHMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST, OP_NEG,
 		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
@@ -183,7 +183,7 @@ int step(void) {
 		OP_READ_MODRM_SHIFT, /* mod r/mの値を見て演算の種類を決める(シフト系) */
 		OP_READ_MODRM_MUL, /* mod r/mの値を見て演算の種類を決める(MUL系) */
 		OP_READ_MODRM_INC /* mod r/mの値を見て演算の種類を決める(INC系) */
-	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
+	} op_arithmetic_kind = OP_ADD; /* 演算命令の種類 */
 	enum {
 		OP_STR_MOV,
 		OP_STR_CMP,
@@ -288,7 +288,7 @@ int step(void) {
 	} else {
 		if (fetch_data <= 0x3F && (fetch_data & 0x07) <= 0x05) {
 			/* パターンに沿った演算命令 */
-			op_kind = OP_ARITIMETIC;
+			op_kind = OP_ARITHMETIC;
 			/* オペランドを解析 */
 			switch (fetch_data & 0x07) {
 			case 0x00: /* r/m8, r8 */
@@ -330,14 +330,14 @@ int step(void) {
 			}
 			/* 演算の種類を解析 */
 			switch(fetch_data >> 3) {
-			case 0: op_aritimetic_kind = OP_ADD; break;
-			case 1: op_aritimetic_kind = OP_OR; break;
-			case 2: op_aritimetic_kind = OP_ADC; break;
-			case 3: op_aritimetic_kind = OP_SBB; break;
-			case 4: op_aritimetic_kind = OP_AND; break;
-			case 5: op_aritimetic_kind = OP_SUB; break;
-			case 6: op_aritimetic_kind = OP_XOR; break;
-			case 7: op_aritimetic_kind = OP_CMP; break;
+			case 0: op_arithmetic_kind = OP_ADD; break;
+			case 1: op_arithmetic_kind = OP_OR; break;
+			case 2: op_arithmetic_kind = OP_ADC; break;
+			case 3: op_arithmetic_kind = OP_SBB; break;
+			case 4: op_arithmetic_kind = OP_AND; break;
+			case 5: op_arithmetic_kind = OP_SUB; break;
+			case 6: op_arithmetic_kind = OP_XOR; break;
+			case 7: op_arithmetic_kind = OP_CMP; break;
 			}
 			need_dest_value = 1;
 		} else if (0x40 <= fetch_data && fetch_data < 0x50) {
@@ -408,8 +408,8 @@ int step(void) {
 			use_imm = 1;
 		} else if (0x80 <= fetch_data && fetch_data <= 0x83) {
 			/* 定数との演算 */
-			op_kind = OP_ARITIMETIC;
-			op_aritimetic_kind = OP_READ_MODRM;
+			op_kind = OP_ARITHMETIC;
+			op_arithmetic_kind = OP_READ_MODRM;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
 			modrm_disable_src = 1;
@@ -421,8 +421,8 @@ int step(void) {
 		} else if (0x84 <= fetch_data && fetch_data <= 0x8B) {
 			/* 演算 */
 			if ((fetch_data & 0xFE) == 0x84) {
-				op_kind = OP_ARITIMETIC;
-				op_aritimetic_kind = OP_TEST;
+				op_kind = OP_ARITHMETIC;
+				op_arithmetic_kind = OP_TEST;
 				need_dest_value = 1;
 			} else if ((fetch_data & 0xFE) == 0x86) {
 				op_kind = OP_XCHG;
@@ -502,8 +502,8 @@ int step(void) {
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 		} else if (fetch_data == 0xA8 || fetch_data == 0xA9) {
 			/* TEST AL/AX/EAX, imm8/imm16/imm32 */
-			op_kind = OP_ARITIMETIC;
-			op_aritimetic_kind = OP_TEST;
+			op_kind = OP_ARITHMETIC;
+			op_arithmetic_kind = OP_TEST;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_imm = 1;
 			src_kind = OP_KIND_IMM;
@@ -520,8 +520,8 @@ int step(void) {
 			dest_reg_index = fetch_data & 0x07;
 		} else if (fetch_data == 0xC0 || fetch_data == 0xC1 || (0xD0 <= fetch_data && fetch_data <= 0xD3)) {
 			/* シフト */
-			op_kind = OP_ARITIMETIC;
-			op_aritimetic_kind = OP_READ_MODRM_SHIFT;
+			op_kind = OP_ARITHMETIC;
+			op_arithmetic_kind = OP_READ_MODRM_SHIFT;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
 			modrm_disable_src = 1;
@@ -651,13 +651,13 @@ int step(void) {
 			}
 		} else if ((fetch_data & 0xFE) == 0xF6) {
 			/* TEST/NOT/NEG/MUL/IMUL/DIV/IDIV */
-			op_kind = OP_ARITIMETIC;
-			op_aritimetic_kind = OP_READ_MODRM_MUL;
+			op_kind = OP_ARITHMETIC;
+			op_arithmetic_kind = OP_READ_MODRM_MUL;
 			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
 			use_mod_rm = 1;
 		} else if ((fetch_data & 0xFE) == 0xFE) {
 			/* INC/DEC/CALL/CALLF/JMP/JMPF/PUSH */
-			op_aritimetic_kind = OP_READ_MODRM_INC;
+			op_arithmetic_kind = OP_READ_MODRM_INC;
 			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
 			use_mod_rm = 1;
 		} else {
@@ -689,29 +689,29 @@ int step(void) {
 		int reg = (mod_rm >> 3) & 7;
 		int rm  =  mod_rm       & 7;
 
-		if (op_aritimetic_kind == OP_READ_MODRM) {
+		if (op_arithmetic_kind == OP_READ_MODRM) {
 			/* 「mod r/mを見て決定する」演算を決定する */
 			static const int kind_table[] = {
 				OP_ADD, OP_OR, OP_ADC, OP_SBB, OP_AND, OP_SUB, OP_XOR, OP_CMP
 			};
-			op_aritimetic_kind = kind_table[reg];
-		} else if (op_aritimetic_kind == OP_READ_MODRM_SHIFT) {
+			op_arithmetic_kind = kind_table[reg];
+		} else if (op_arithmetic_kind == OP_READ_MODRM_SHIFT) {
 			/* 「mod r/mを見て決定する」シフト系の演算を決定する */
 			static const int kind_table[] = {
 				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
 			};
-			op_aritimetic_kind = kind_table[reg];
-		} else if (op_aritimetic_kind == OP_READ_MODRM_MUL) {
+			op_arithmetic_kind = kind_table[reg];
+		} else if (op_arithmetic_kind == OP_READ_MODRM_MUL) {
 			/* 「mod r/mを見て決定する」MUL系の演算を決定する */
 			static const int op_table[] = {
-				OP_ARITIMETIC, OP_ARITIMETIC, OP_NOT, OP_ARITIMETIC,
+				OP_ARITHMETIC, OP_ARITHMETIC, OP_NOT, OP_ARITHMETIC,
 				OP_MUL, OP_IMUL, OP_DIV, OP_IDIV
 			};
 			op_kind = op_table[reg];
 			if (reg <= 1) {
-				op_aritimetic_kind = OP_TEST;
+				op_arithmetic_kind = OP_TEST;
 			} else if (reg == 3) {
-				op_aritimetic_kind = OP_NEG;
+				op_arithmetic_kind = OP_NEG;
 			}
 			if (reg <= 1) {
 				use_imm = 1;
@@ -719,7 +719,7 @@ int step(void) {
 			}
 			if (reg <= 3) need_dest_value = 1;
 			if (4 <= reg) is_dest_reg = 1;
-		} else if (op_aritimetic_kind == OP_READ_MODRM_INC) {
+		} else if (op_arithmetic_kind == OP_READ_MODRM_INC) {
 			/* 「mod r/mを見て決定する」INC系の演算を決定する */
 			static const int op_table[] = {
 				OP_INCDEC, OP_INCDEC,
@@ -968,14 +968,14 @@ int step(void) {
 	return 0;
 
 	switch (op_kind) {
-	case OP_ARITIMETIC:
+	case OP_ARITHMETIC:
 		{
 			uint64_t result64 = 0;
 			uint64_t sign_mask = (UINT64_C(1) << (op_width * 8 - 1));
 			uint32_t next_eflags = eflags & ~(OF | SF | ZF | AF | PF | CF);
 			int par = 0, i;
 			result_write = 1;
-			switch (op_aritimetic_kind) {
+			switch (op_arithmetic_kind) {
 			case OP_ADD:
 				result64 = (uint64_t)dest_value + (uint64_t)src_value;
 				if ((dest_value & sign_mask) == (src_value & sign_mask) &&
@@ -1035,7 +1035,7 @@ int step(void) {
 				break;
 			*/
 			default:
-				fprintf(stderr, "unknown aritimethc %d at %08"PRIx32"\n", (int)op_aritimetic_kind, inst_addr);
+				fprintf(stderr, "unknown arithmethc %d at %08"PRIx32"\n", (int)op_arithmetic_kind, inst_addr);
 				print_regs(stderr);
 				return 0;
 			}
@@ -1263,7 +1263,7 @@ int step(void) {
 			break;
 		case OP_KIND_REG_HIGH8:
 			if (op_width != 1) {
-				fprintf(stderr, "tried to write high register with wigth other than 1 at %08"PRIx32"\n", inst_addr);
+				fprintf(stderr, "tried to write high register with width other than 1 at %08"PRIx32"\n", inst_addr);
 				print_regs(stderr);
 				return 0;
 			}
