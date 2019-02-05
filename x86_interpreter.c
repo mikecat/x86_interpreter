@@ -932,10 +932,10 @@ int step(void) {
 		if (direct_disp_size < 4) disp_value &= UINT32_C(0xffffffff) >> (8 * (4 - direct_disp_size));
 		if (is_dest_direct_disp) {
 			dest_kind = OP_KIND_MEM;
-			dest_reg_index = disp_value;
+			dest_addr = disp_value;
 		} else {
 			src_kind = OP_KIND_MEM;
-			src_reg_index = disp_value;
+			src_addr = disp_value;
 		}
 	}
 
