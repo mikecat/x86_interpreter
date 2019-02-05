@@ -118,6 +118,10 @@ int step(void) {
 		OP_STRING,
 		OP_CALL,
 		OP_JUMP,
+		OP_CALL_ABSOLUTE,
+		OP_JUMP_ABSOLUTE,
+		OP_CALL_FAR,
+		OP_JUMP_FAR,
 		OP_CBW,
 		OP_CWD,
 		OP_SAHF,
@@ -140,7 +144,8 @@ int step(void) {
 		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
 		OP_READ_MODRM, /* mod r/mの値を見て演算の種類を決める */
 		OP_READ_MODRM_SHIFT, /* mod r/mの値を見て演算の種類を決める(シフト系) */
-		OP_READ_MODRM_MUL /* mod r/mの値を見て演算の種類を決める(MUL系) */
+		OP_READ_MODRM_MUL, /* mod r/mの値を見て演算の種類を決める(MUL系) */
+		OP_READ_MODRM_INC /* mod r/mの値を見て演算の種類を決める(INC系) */
 	} op_aritimetic_kind = OP_ADD; /* 演算命令の種類 */
 	enum {
 		OP_STR_MOV,
@@ -579,6 +584,11 @@ int step(void) {
 			op_aritimetic_kind = OP_READ_MODRM_MUL;
 			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
 			use_mod_rm = 1;
+		} else if ((fetch_data & 0xFE) == 0xFE) {
+			/* INC/DEC/CALL/CALLF/JMP/JMPF/PUSH */
+			op_aritimetic_kind = OP_READ_MODRM_INC;
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
+			use_mod_rm = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -638,6 +648,30 @@ int step(void) {
 			}
 			if (reg <= 3) need_dest_value = 1;
 			if (4 <= reg) is_dest_reg = 1;
+		} else if (op_aritimetic_kind == OP_READ_MODRM_INC) {
+			/* 「mod r/mを見て決定する」INC系の演算を決定する */
+			static const int op_table[] = {
+				OP_INCDEC, OP_INCDEC,
+				OP_CALL_ABSOLUTE, OP_CALL_FAR,
+				OP_JUMP_ABSOLUTE, OP_JUMP_FAR,
+				OP_PUSH, 0
+			};
+			op_kind = op_table[reg];
+			if (reg <= 1) {
+				imm_value = (reg == 0 ? 1 : -1);
+				need_dest_value = 1;
+			} else if (reg <= 6) {
+				if (op_width == 1) {
+					fprintf(stderr, "undefined operation reg=%d at %08"PRIx32"\n", reg, inst_addr);
+					print_regs(stderr);
+					return 0;
+				}
+				is_dest_reg = 1;
+			} else {
+				fprintf(stderr, "undefined operation reg=%d at %08"PRIx32"\n", reg, inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
 		}
 
 		if (op_width == 1) {
@@ -1018,6 +1052,18 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_CALL)
 	case OP_JUMP:
 		if (jmp_take) eip += src_value;
+		break;
+	case OP_CALL_ABSOLUTE:
+		NOT_IMPLEMENTED(OP_CALL_ABSOLUTE)
+		break;
+	case OP_JUMP_ABSOLUTE:
+		NOT_IMPLEMENTED(OP_JUMP_ABSOLUTE)
+		break;
+	case OP_CALL_FAR:
+		NOT_IMPLEMENTED(OP_CALL_FAR)
+		break;
+	case OP_JUMP_FAR:
+		NOT_IMPLEMENTED(OP_JUMP_FAR)
 		break;
 	case OP_CBW:
 		NOT_IMPLEMENTED(OP_CBW)
