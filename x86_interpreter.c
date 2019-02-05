@@ -1299,7 +1299,7 @@ int step(void) {
 			do {
 				uint32_t esi_addr = is_addr_16bit ? regs[ESI] & 0xffff : regs[ESI];
 				uint32_t edi_addr = is_addr_16bit ? regs[EDI] & 0xffff : regs[EDI];
-				uint32_t s, d;
+				uint32_t s =0 , d = 0;
 				switch (op_string_kind) {
 				case OP_STR_MOV:
 					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
