@@ -340,8 +340,9 @@ int step(void) {
 		} else if (fetch_data == 0x6A) {
 			/* PUSH imm8 */
 			op_kind = OP_PUSH;
-			op_width = 1;
+			op_width = (is_data_16bit ? 2 : 4);
 			use_imm = 1;
+			one_byte_imm = 1;
 			src_kind = OP_KIND_IMM;
 		} else if ((0x70 <= fetch_data && fetch_data < 0x80) || fetch_data == 0xE3 || fetch_data == 0xEB) {
 			/* 分岐 */
