@@ -1233,6 +1233,7 @@ int str_to_uint32(uint32_t* out, const char* str) {
 int main(int argc, char *argv[]) {
 	int i;
 	int enable_trace = 0;
+	int enable_args = 0;
 	uint32_t initial_eip = 0;
 	uint32_t initial_esp = UINT32_C(0xfffff000);
 	uint32_t stack_size = 4096;
@@ -1266,6 +1267,10 @@ int main(int argc, char *argv[]) {
 					return 1;
 				}
 			} else { fprintf(stderr, "no stack size for --stacksize\n"); return 1;}
+		} else if (strcmp(argv[i], "--args") == 0) {
+			i++;
+			enable_args = 1;
+			break;
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
@@ -1280,6 +1285,48 @@ int main(int argc, char *argv[]) {
 	eflags = UINT32_C(0x00000002);
 	regs[ESP] = initial_esp;
 	dmemory_allocate(initial_esp - stack_size, stack_size);
+	if (enable_args) {
+		uint32_t argc2 = argc - i, j;
+		char** argv2 = argv + i;
+		uint32_t stack_limit = initial_esp - stack_size;
+		uint32_t argv_addr, current_addr = initial_esp;
+		uint32_t num_buffer = 0;
+		/* argvが指す配列の領域を確保する */
+		if (argc2 == UINT32_MAX || UINT32_MAX / 4 < (argc2 + 1)) {
+			fprintf(stderr, "too many arguments\n");
+			return 1;
+		}
+		if (current_addr - stack_limit < 4 * (argc2 + 1)) {
+			fprintf(stderr, "stack too small to hold argv table\n");
+			return 1;
+		}
+		current_addr -= 4 * (argc2 + 1);
+		argv_addr = current_addr;
+		/* 引数の文字列とargvが指す配列の値を書き込む */
+		for (j = 0; j < argc2; j++) {
+			uint32_t stack_left = current_addr - stack_limit;
+			size_t alen = strlen(argv2[j]);
+			if (stack_left == 0 || stack_left - 1 < alen) {
+				fprintf(stderr, "stack too small to hold argv[%"PRIu32"]\n", j);
+				return 1;
+			}
+			current_addr -= alen + 1;
+			dmemory_write(argv2[j], current_addr, alen + 1);
+			dmemory_write(&current_addr, argv_addr + j * 4, sizeof(current_addr));
+		}
+		dmemory_write(&num_buffer, argv_addr + argc2 * 4, sizeof(num_buffer));
+		if (current_addr - stack_limit < 12) {
+			fprintf(stderr, "stack too small to hold arguments\n");
+			return 1;
+		}
+		/* main関数に渡す引数とダミーのリターンアドレスを書き込む */
+		current_addr -= 12;
+		dmemory_write(&argv_addr, current_addr + 8, sizeof(argv_addr));
+		dmemory_write(&argc2, current_addr + 4, sizeof(argc2));
+		num_buffer = UINT32_C(0xfffffff0);
+		dmemory_write(&num_buffer, current_addr, sizeof(num_buffer));
+		regs[ESP] = current_addr;
+	}
 
 	if (enable_trace) {
 		print_regs(stdout);
