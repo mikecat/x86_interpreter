@@ -1059,20 +1059,33 @@ int step(void) {
 				uint32_t next_eflags = eflags;
 				uint32_t sign_mask = UINT32_C(1) << (8 * op_width - 1);
 				uint64_t upper_carry_mask = UINT64_C(1) << (8 * op_width);
+				uint64_t value_mask = upper_carry_mask - 1;
 				uint64_t result64;
 				int enable_result_flags = 0;
 				int carry = 0;
 				switch (op_shift_kind) {
-				/*
 				case OP_ROL:
+					result64 = dest_value & value_mask;
+					result64 = (result64 << shift_width) | (result64 >> (8 * op_width - shift_width));
+					carry = (result64 & upper_carry_mask) != 0;
 					break;
 				case OP_ROR:
+					result64 = dest_value & value_mask;
+					result64 = (result64 >> shift_width) | (result64 << (8 * op_width - shift_width));
+					carry = ((dest_value >> (shift_width - 1)) & 1) != 0;
 					break;
 				case OP_RCL:
+					result64 = dest_value & value_mask;
+					if (next_eflags & CF) result64 |= upper_carry_mask;
+					result64 = (result64 << shift_width) | (result64 >> (8 * op_width + 1 - shift_width));
+					carry = (result64 & upper_carry_mask) != 0;
 					break;
 				case OP_RCR:
+					result64 = dest_value & value_mask;
+					if (next_eflags & CF) result64 |= upper_carry_mask;
+					result64 = (result64 >> shift_width) | (result64 << (8 * op_width + 1 - shift_width));
+					carry = (result64 & upper_carry_mask) != 0;
 					break;
-				*/
 				case OP_SHL:
 					result64 = (uint64_t)dest_value << shift_width;
 					carry = (result64 & upper_carry_mask) != 0;
@@ -1110,7 +1123,7 @@ int step(void) {
 						if ((result64 >> i) & 1) par++;
 					}
 					if (par % 2 == 0) next_eflags |= PF; else next_eflags &= ~PF;
-					if ((result64 & (upper_carry_mask - 1)) == 0) next_eflags |= ZF; else next_eflags &= ~ZF;
+					if ((result64 & value_mask) == 0) next_eflags |= ZF; else next_eflags &= ~ZF;
 					if (result64 & sign_mask) next_eflags |= SF; else next_eflags &= ~SF;
 				}
 				eflags = next_eflags;
