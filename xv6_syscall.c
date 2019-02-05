@@ -28,6 +28,45 @@ int xv6_syscall(uint32_t regs[]) {
 	switch (regs[0]) {
 		case 2: /* exit */
 			return 0;
+		case 5: /* read */
+			{
+				uint32_t fd, buf, n;
+				int ok1 = 0, ok2 = 0, ok3 = 0;
+				FILE* fp;
+				uint8_t* data;
+				size_t read_size;
+				fd = readint(&ok1, esp + 4, 4);
+				buf = readint(&ok2, esp + 8, 4);
+				n = readint(&ok3, esp + 12, 4);
+				if (!(ok1 && ok2 && ok3)) {
+					regs[0] = -1;
+					break;
+				}
+				/* 入力元の指定(暫定対応) */
+				if (fd == 0) {
+					fp = stdin;
+				} else {
+					regs[0] = -1;
+					break;
+				}
+				/* データを取得 */
+				data = malloc(n);
+				if (data == NULL) {
+					perror("malloc");
+					return 0;
+				}
+				read_size = fread(data, 1, n, fp);
+				if (!dmemory_is_allocated(buf, read_size)) {
+					/* 指定された領域が確保されていない */
+					regs[0] = -1;
+					break;
+				}
+				dmemory_write(data, buf, read_size);
+				free(data);
+				/* 成功 */
+				regs[0] = read_size;
+			}
+			break;
 		case 16: /* write */
 			{
 				uint32_t fd, buf, n;
