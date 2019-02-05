@@ -1133,7 +1133,37 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_IMUL)
 		break;
 	case OP_DIV:
-		NOT_IMPLEMENTED(OP_DIV)
+		{
+			uint64_t d;
+			uint32_t mask = op_width == 4 ? UINT32_C(0xffffffff) : UINT32_C(0xffffffff) >> (8 * (4 - op_width));
+			uint32_t s = src_value & mask;
+			uint32_t rem;
+			if (op_width == 1) d = regs[EAX] & 0xffff;
+			else if (op_width == 2) d = ((regs[EDX] & 0xffff) << 16) | (regs[EAX] & 0xffff);
+			else d = ((uint64_t)regs[EDX] << 32) | regs[EAX];
+			if (s == 0) {
+				fprintf(stderr, "divide by zero at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			rem = (uint32_t)(d % s);
+			d = d / s;
+			if (d > mask) {
+				fprintf(stderr, "result of division too large at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			if (op_width == 1) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) |
+					((rem & 0xff) << 8) | (uint32_t)(d & 0xff);
+			} else if (op_width == 2) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) | (uint32_t)(d & 0xffff);
+				regs[EDX] = (regs[EDX] & UINT32_C(0xffff0000)) | (rem & 0xffff);
+			} else {
+				regs[EAX] = (uint32_t)d;
+				regs[EDX] = rem;
+			}
+		}
 		break;
 	case OP_IDIV:
 		NOT_IMPLEMENTED(OP_IDIV)
