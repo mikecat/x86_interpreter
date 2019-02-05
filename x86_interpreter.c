@@ -125,6 +125,10 @@ int step(void) {
 		OP_LOOP,
 		OP_IN,
 		OP_OUT,
+		OP_HLT,
+		OP_CMC,
+		OP_SET_FLAG,
+		OP_CLEAR_FLAG,
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST,
@@ -549,6 +553,20 @@ int step(void) {
 			op_width = is_data_16bit ? 2 : 4;
 			use_imm = 1;
 			jmp_take = 1;
+		} else if (fetch_data == 0xF4) {
+			/* HLT */
+			op_kind = OP_HLT;
+		} else if (fetch_data == 0xF5) {
+			/* CMC */
+			op_kind = OP_CMC;
+		} else if (0xF8 <= fetch_data && fetch_data <= 0xFD) {
+			/* CLC/STC/CLI/STI/CLD/STD */
+			op_kind = (fetch_data & 0x01) ? OP_SET_FLAG : OP_CLEAR_FLAG;
+			switch (fetch_data & 0xFE) {
+			case 0xF8: imm_value = CF; break;
+			case 0xFA: imm_value = IF; break;
+			case 0xFC: imm_value = DF; break;
+			}
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -1016,6 +1034,18 @@ int step(void) {
 		break;
 	case OP_OUT:
 		NOT_IMPLEMENTED(OP_OUT)
+		break;
+	case OP_HLT:
+		NOT_IMPLEMENTED(OP_HLT)
+		break;
+	case OP_CMC:
+		eflags ^= CF;
+		break;
+	case OP_SET_FLAG:
+		eflags |= imm_value;
+		break;
+	case OP_CLEAR_FLAG:
+		eflags &= ~imm_value;
 		break;
 	default:
 		fprintf(stderr, "unknown operation kind %d at %08"PRIx32"\n", (int)op_kind, inst_addr);
