@@ -803,6 +803,7 @@ int step(void) {
 				case 3: modrm_reg2_scale = 8; break;
 			}
 		}
+		if (r32 == 5 && modrm_no_reg) disp_size = 4;
 	}
 
 	/* dispを解析する */
