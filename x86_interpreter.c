@@ -88,6 +88,38 @@ int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
 	return 1;
 }
 
+int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_addr_16bit) {
+	uint32_t addr = regs[ESP];
+	if (is_addr_16bit) addr &= 0xffff;
+	addr -= op_width;
+	if (!step_memwrite(inst_addr, addr, value, op_width)) return 0;
+	if (is_addr_16bit) {
+		regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (addr & 0xffff);
+	} else {
+		regs[ESP] = addr;
+	}
+	return 1;
+}
+
+uint32_t step_pop(int* success, uint32_t inst_addr, int op_width, int is_addr_16bit) {
+	int memread_ok = 0;
+	uint32_t next_esp;
+	uint32_t value = step_memread(&memread_ok, inst_addr,
+		is_addr_16bit ? regs[ESP] & 0xffff : regs[ESP], op_width);
+	if (!memread_ok) {
+		*success = 0;
+		return 0;
+	}
+	next_esp = regs[ESP] + op_width;
+	if (is_addr_16bit) {
+		regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (next_esp & 0xffff);
+	} else {
+		regs[ESP] = next_esp;
+	}
+	*success = 1;
+	return value;
+}
+
 int step(void) {
 	uint32_t inst_addr = eip; /* エラー時の検証用 */
 	uint8_t fetch_data;
@@ -1018,20 +1050,12 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_IDIV)
 		break;
 	case OP_PUSH:
-		{
-			uint32_t addr = regs[ESP];
-			if (is_addr_16bit) addr &= 0xffff;
-			addr -= op_width;
-			if (!step_memwrite(inst_addr, addr, src_value, op_width)) return 0;
-			if (is_addr_16bit) {
-				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (addr & 0xffff);
-			} else {
-				regs[ESP] = addr;
-			}
-		}
+		if (!step_push(inst_addr, src_value, op_width, is_addr_16bit)) return 0;
 		break;
 	case OP_POP:
-		NOT_IMPLEMENTED(OP_POP)
+		result = step_pop(&memread_ok, inst_addr, op_width, is_addr_16bit);
+		if (!memread_ok) return 0;
+		result_write = 1;
 		break;
 	case OP_PUSHA:
 		NOT_IMPLEMENTED(OP_PUSHA)
@@ -1079,30 +1103,21 @@ int step(void) {
 		break;
 	case OP_RETN:
 		{
-			uint32_t next_eip = step_memread(&memread_ok, inst_addr, regs[ESP], 4);
+			uint32_t next_eip = step_pop(&memread_ok, inst_addr, is_data_16bit ? 2 : 4, is_addr_16bit);
 			if (!memread_ok) return 0;
 			eip = next_eip;
-			regs[ESP] += 4 + imm_value;
 		}
 		break;
 	case OP_LEAVE:
 		{
 			uint32_t next_ebp = 0;
-			uint32_t next_esp = 0;
 			if (is_addr_16bit) {
 				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (regs[EBP] & 0xffff);
 			} else {
 				regs[ESP] = regs[EBP];
 			}
-			next_ebp = step_memread(&memread_ok, inst_addr,
-				is_addr_16bit ? regs[ESP] & 0xffff : regs[ESP], op_width);
+			next_ebp = step_pop(&memread_ok, inst_addr, op_width, is_addr_16bit);
 			if (!memread_ok) return 0;
-			next_esp = regs[ESP] + op_width;
-			if (is_addr_16bit) {
-				regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (next_esp & 0xffff);
-			} else {
-				regs[ESP] = next_esp;
-			}
 			if (op_width == 2) {
 				regs[EBP] = (regs[EBP] & UINT32_C(0xffff0000)) | (next_ebp & 0xffff);
 			} else {
