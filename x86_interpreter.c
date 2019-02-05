@@ -135,6 +135,7 @@ int step(void) {
 
 	enum {
 		OP_ARITHMETIC,
+		OP_SHIFT,
 		OP_XCHG,
 		OP_MOV,
 		OP_MOVZX,
@@ -178,12 +179,14 @@ int step(void) {
 	} op_kind = OP_ARITHMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST, OP_NEG,
-		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
 		OP_READ_MODRM, /* mod r/mの値を見て演算の種類を決める */
-		OP_READ_MODRM_SHIFT, /* mod r/mの値を見て演算の種類を決める(シフト系) */
 		OP_READ_MODRM_MUL, /* mod r/mの値を見て演算の種類を決める(MUL系) */
 		OP_READ_MODRM_INC /* mod r/mの値を見て演算の種類を決める(INC系) */
 	} op_arithmetic_kind = OP_ADD; /* 演算命令の種類 */
+	enum {
+		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
+		OP_READ_MODRM_SHIFT /* mod r/mの値を見て演算の種類を決める(シフト系) */
+	} op_shift_kind = OP_ROL;
 	enum {
 		OP_STR_MOV,
 		OP_STR_CMP,
@@ -534,7 +537,7 @@ int step(void) {
 			dest_reg_index = fetch_data & 0x07;
 		} else if (fetch_data == 0xC0 || fetch_data == 0xC1 || (0xD0 <= fetch_data && fetch_data <= 0xD3)) {
 			/* シフト */
-			op_kind = OP_ARITHMETIC;
+			op_kind = OP_SHIFT;
 			op_arithmetic_kind = OP_READ_MODRM_SHIFT;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
@@ -709,12 +712,6 @@ int step(void) {
 				OP_ADD, OP_OR, OP_ADC, OP_SBB, OP_AND, OP_SUB, OP_XOR, OP_CMP
 			};
 			op_arithmetic_kind = kind_table[reg];
-		} else if (op_arithmetic_kind == OP_READ_MODRM_SHIFT) {
-			/* 「mod r/mを見て決定する」シフト系の演算を決定する */
-			static const int kind_table[] = {
-				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
-			};
-			op_arithmetic_kind = kind_table[reg];
 		} else if (op_arithmetic_kind == OP_READ_MODRM_MUL) {
 			/* 「mod r/mを見て決定する」MUL系の演算を決定する */
 			static const int op_table[] = {
@@ -757,6 +754,13 @@ int step(void) {
 				print_regs(stderr);
 				return 0;
 			}
+		}
+		if (op_shift_kind == OP_READ_MODRM_SHIFT) {
+			/* 「mod r/mを見て決定する」シフト系の演算を決定する */
+			static const int kind_table[] = {
+				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
+			};
+			op_shift_kind = kind_table[reg];
 		}
 
 		if (op_width == 1) {
@@ -1032,22 +1036,6 @@ int step(void) {
 			case OP_NEG:
 				result64 = -(uint64_t)dest_value;
 				if ((dest_value & sign_mask) == (result64 & sign_mask) && dest_value != 0) next_eflags |= OF;
-			/*
-			case OP_ROL:
-				break;
-			case OP_ROR:
-				break;
-			case OP_RCL:
-				break;
-			case OP_RCR:
-				break;
-			case OP_SHL:
-				break;
-			case OP_SHR:
-				break;
-			case OP_SAR:
-				break;
-			*/
 			default:
 				fprintf(stderr, "unknown arithmethc %d at %08"PRIx32"\n", (int)op_arithmetic_kind, inst_addr);
 				print_regs(stderr);
@@ -1063,6 +1051,27 @@ int step(void) {
 			result = (uint32_t)result64;
 			eflags = next_eflags;
 		}
+		break;
+	case OP_SHIFT:
+		NOT_IMPLEMENTED(OP_SHIFT)
+		/*
+		switch (op_shift_kind) {
+		case OP_ROL:
+			break;
+		case OP_ROR:
+			break;
+		case OP_RCL:
+			break;
+		case OP_RCR:
+			break;
+		case OP_SHL:
+			break;
+		case OP_SHR:
+			break;
+		case OP_SAR:
+			break;
+		}
+		*/
 		break;
 	case OP_XCHG:
 		result = src_value;
