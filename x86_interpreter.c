@@ -620,18 +620,15 @@ int step(void) {
 		int idx = (sib >> 3) & 7;
 		int r32 =  sib       & 7;
 
-		if (idx == 4) {
-			fprintf(stderr, "sib index=4 (none) detected at %08"PRIx32"\n\n", inst_addr);
-			print_regs(stderr);
-			return 0;
-		}
 		modrm_reg_index = r32;
-		modrm_reg2_index = idx;
-		switch (ss) {
-			case 0: modrm_reg2_scale = 1; break;
-			case 1: modrm_reg2_scale = 2; break;
-			case 2: modrm_reg2_scale = 4; break;
-			case 3: modrm_reg2_scale = 8; break;
+		if (idx != 4) {
+			modrm_reg2_index = idx;
+			switch (ss) {
+				case 0: modrm_reg2_scale = 1; break;
+				case 1: modrm_reg2_scale = 2; break;
+				case 2: modrm_reg2_scale = 4; break;
+				case 3: modrm_reg2_scale = 8; break;
+			}
 		}
 	}
 
