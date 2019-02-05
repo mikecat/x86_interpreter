@@ -698,8 +698,12 @@ int step(void) {
 		src_value = imm_value;
 		break;
 	case OP_KIND_MEM:
-		src_value = step_memread(&memread_ok, inst_addr, src_addr, op_width);
-		if (!memread_ok) return 0;
+		if (op_kind == OP_LEA) {
+			src_value = src_addr;
+		} else {
+			src_value = step_memread(&memread_ok, inst_addr, src_addr, op_width);
+			if (!memread_ok) return 0;
+		}
 		break;
 	case OP_KIND_REG:
 		src_value = regs[src_reg_index];
@@ -838,7 +842,8 @@ int step(void) {
 		result_write = 1;
 		break;
 	case OP_LEA:
-		NOT_IMPLEMENTED(OP_LEA)
+		result = src_value;
+		result_write = 1;
 		break;
 	case OP_INCDEC:
 		{
