@@ -244,9 +244,30 @@ int step(void) {
 
 	/* オペコードを解析する */
 	if (fetch_data == 0x0F) {
-		fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
-		print_regs(stderr);
-		return 0;
+		fetch_data = step_memread(&memread_ok, inst_addr, eip, 1);
+		if (!memread_ok) return 0;
+		eip++;
+		if ((fetch_data & 0xF0) == 0x80) {
+			/* Jcc rel16/32 */
+			op_kind = OP_JUMP;
+			op_width = is_data_16bit ? 2 : 4;
+			use_imm = 1;
+			switch (fetch_data & 0x0E) {
+			case 0x0: jmp_take = (eflags & OF); break; /* JO */
+			case 0x2: jmp_take = (eflags & CF); break; /* JB */
+			case 0x4: jmp_take = (eflags & ZF); break; /* JZ */
+			case 0x6: jmp_take = (eflags & CF) || (eflags & ZF); break; /* JBE */
+			case 0x8: jmp_take = (eflags & SF); break; /* JS */
+			case 0xA: jmp_take = (eflags & PF); break; /* JP */
+			case 0xC: jmp_take = ((eflags & SF) != 0) != ((eflags & OF) != 0); break; /* JL */
+			case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
+			}
+			if (fetch_data & 0x01) jmp_take = !jmp_take;
+		} else {
+			fprintf(stderr, "unsupported opcode \"0f %02"PRIx8"\" at %08"PRIx32"\n\n", fetch_data, inst_addr);
+			print_regs(stderr);
+			return 0;
+		}
 	} else {
 		if (fetch_data <= 0x3F && (fetch_data & 0x07) <= 0x05) {
 			/* パターンに沿った演算命令 */
