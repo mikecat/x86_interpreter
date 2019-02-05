@@ -122,6 +122,8 @@ int step(void) {
 		OP_INTO,
 		OP_IRET,
 		OP_LOOP,
+		OP_IN,
+		OP_OUT,
 	} op_kind = OP_ARITIMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST,
@@ -505,6 +507,35 @@ int step(void) {
 			case 0xE0: jmp_take = !(eflags & ZF); break;
 			case 0xE1: jmp_take = (eflags & ZF); break;
 			case 0xE2: jmp_take = 1; break;
+			}
+		} else if ((fetch_data & 0xFC) == 0xE4 || (fetch_data & 0xFC) == 0xEC) {
+			/* IN/OUT */
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
+			if (fetch_data <= 0xE7) {
+				use_imm = 1;
+				one_byte_imm = 1;
+			}
+			if ((fetch_data & 0x03) < 2) {
+				op_kind = OP_IN;
+				src_kind = OP_KIND_REG;
+				src_reg_index = EAX;
+				if (fetch_data <= 0xE7) {
+					dest_kind = OP_KIND_IMM;
+				} else {
+					dest_kind = OP_KIND_REG;
+					dest_reg_index = EDX;
+					need_dest_value = 1;
+				}
+			} else {
+				op_kind = OP_OUT;
+				dest_kind = OP_KIND_REG;
+				dest_reg_index = EAX;
+				if (fetch_data <= 0xE7) {
+					src_kind = OP_KIND_IMM;
+				} else {
+					src_kind = OP_KIND_REG;
+					src_reg_index = EDX;
+				}
 			}
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
@@ -965,6 +996,12 @@ int step(void) {
 		result = src_value - 1;
 		result_write = 1;
 		if (jmp_take && src_value != 1) eip += src_value;
+		break;
+	case OP_IN:
+		NOT_IMPLEMENTED(OP_IN)
+		break;
+	case OP_OUT:
+		NOT_IMPLEMENTED(OP_OUT)
 		break;
 	default:
 		fprintf(stderr, "unknown operation kind %d at %08"PRIx32"\n", (int)op_kind, inst_addr);
