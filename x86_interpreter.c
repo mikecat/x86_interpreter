@@ -1579,6 +1579,15 @@ int main(int argc, char *argv[]) {
 			break;
 		} else if (strcmp(argv[i], "--xv6-syscall") == 0) {
 			use_xv6_syscall = 1;
+		} else if (strcmp(argv[i], "--xv6-sbrk") == 0) {
+			if (++i < argc) {
+				uint32_t sbrk_origin = 0;
+				if (!str_to_uint32(&sbrk_origin, argv[i])) {
+					fprintf(stderr, "invalid xv6 sbrk origin %s\n", argv[i]);
+					return 1;
+				}
+				initialize_xv6_sbrk(sbrk_origin);
+			} else { fprintf(stderr, "no xv6 sbrk origin for --xv6-sbrk\n"); return 1;}
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+void initialize_xv6_sbrk(uint32_t initial_addr);
 int xv6_syscall(uint32_t regs[]);
 
 #endif

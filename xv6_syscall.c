@@ -3,6 +3,16 @@
 #include "dynamic_memory.h"
 #include "xv6_syscall.h"
 
+int enable_sbrk = 0;
+uint32_t sbrk_origin = 0;
+uint32_t sbrk_addr = 0;
+
+void initialize_xv6_sbrk(uint32_t initial_addr) {
+	enable_sbrk = 1;
+	sbrk_origin = initial_addr;
+	sbrk_addr = initial_addr;
+}
+
 uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
 	uint8_t buffer[4];
 	uint32_t result = 0;
@@ -65,6 +75,37 @@ int xv6_syscall(uint32_t regs[]) {
 				free(data);
 				/* 成功 */
 				regs[0] = read_size;
+			}
+			break;
+		case 12: /* sbrk */
+			if (!enable_sbrk) {
+				regs[0] = -1;
+			} else {
+				uint32_t n;
+				uint32_t new_addr;
+				int ok;
+				n = readint(&ok, esp + 4, 4);
+				if (!ok) {
+					regs[0] = -1;
+					break;
+				}
+				new_addr = sbrk_addr + n;
+				if (n & UINT32_C(0x80000000) ? new_addr > sbrk_addr : new_addr < sbrk_addr) {
+					/* オーバーフロー */
+					regs[0] = -1;
+					break;
+				}
+				if (new_addr < sbrk_origin) {
+					/* 減らしすぎ(本家ではOK?) */
+					regs[0] = -1;
+					break;
+				}
+				if (sbrk_addr < new_addr) {
+					dmemory_allocate(sbrk_addr, new_addr - sbrk_addr);
+				}
+				/* 成功 */
+				regs[0] = sbrk_addr;
+				sbrk_addr = new_addr;
 			}
 			break;
 		case 16: /* write */
