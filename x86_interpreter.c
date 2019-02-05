@@ -578,6 +578,7 @@ int step(void) {
 			op_kind = OP_ARITIMETIC;
 			op_aritimetic_kind = OP_READ_MODRM_MUL;
 			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
+			use_mod_rm = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
