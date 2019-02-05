@@ -1074,7 +1074,10 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_STRING)
 		break;
 	case OP_CALL:
-		NOT_IMPLEMENTED(OP_CALL)
+		if (!step_push(inst_addr, eip, op_width, is_addr_16bit)) return 0;
+		eip += src_value;
+		if (is_data_16bit) eip &= 0xffff;
+		break;
 	case OP_JUMP:
 		if (jmp_take) eip += src_value;
 		break;
