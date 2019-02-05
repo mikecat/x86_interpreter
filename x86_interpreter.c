@@ -554,7 +554,7 @@ int step(void) {
 		} else if (fetch_data == 0xC0 || fetch_data == 0xC1 || (0xD0 <= fetch_data && fetch_data <= 0xD3)) {
 			/* シフト */
 			op_kind = OP_SHIFT;
-			op_arithmetic_kind = OP_READ_MODRM_SHIFT;
+			op_shift_kind = OP_READ_MODRM_SHIFT;
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
 			use_mod_rm = 1;
 			modrm_disable_src = 1;
