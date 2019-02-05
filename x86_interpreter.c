@@ -111,6 +111,7 @@ int step(void) {
 		OP_PUSHF,
 		OP_POPF,
 		OP_STRING,
+		OP_CALL,
 		OP_JUMP,
 		OP_CBW,
 		OP_CWD,
@@ -537,6 +538,17 @@ int step(void) {
 					src_reg_index = EDX;
 				}
 			}
+		} else if (fetch_data == 0xE8) {
+			/* CALL */
+			op_kind = OP_CALL;
+			op_width = is_data_16bit ? 2 : 4;
+			use_imm = 1;
+		} else if (fetch_data == 0xE9) {
+			/* JUMP */
+			op_kind = OP_JUMP;
+			op_width = is_data_16bit ? 2 : 4;
+			use_imm = 1;
+			jmp_take = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode %02"PRIx8" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -935,6 +947,8 @@ int step(void) {
 	case OP_STRING:
 		NOT_IMPLEMENTED(OP_STRING)
 		break;
+	case OP_CALL:
+		NOT_IMPLEMENTED(OP_CALL)
 	case OP_JUMP:
 		if (jmp_take) eip += src_value;
 		break;
