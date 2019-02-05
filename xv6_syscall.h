@@ -1,0 +1,8 @@
+#ifndef XV6_SYSCALL_H_GUARD_05AC6687_373D_412B_8406_6BA9C13F8576
+#define XV6_SYSCALL_H_GUARD_05AC6687_373D_412B_8406_6BA9C13F8576
+
+#include <stdint.h>
+
+int xv6_syscall(uint32_t regs[]);
+
+#endif

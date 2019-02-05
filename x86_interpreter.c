@@ -4,6 +4,9 @@
 #include "dynamic_memory.h"
 #include "read_raw.h"
 #include "read_elf.h"
+#include "xv6_syscall.h"
+
+int use_xv6_syscall = 0;
 
 #define CF 0x0001
 #define PF 0x0004
@@ -1177,7 +1180,11 @@ int step(void) {
 		}
 		break;
 	case OP_INT:
-		NOT_IMPLEMENTED(OP_INT)
+		if (use_xv6_syscall && src_value == 0x40) {
+			if (!xv6_syscall(regs)) return 0;
+		} else {
+			NOT_IMPLEMENTED(OP_INT)
+		}
 		break;
 	case OP_INTO:
 		NOT_IMPLEMENTED(OP_INTO)
@@ -1322,6 +1329,8 @@ int main(int argc, char *argv[]) {
 			i++;
 			enable_args = 1;
 			break;
+		} else if (strcmp(argv[i], "--xv6-syscall") == 0) {
+			use_xv6_syscall = 1;
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
