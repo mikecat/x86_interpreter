@@ -13,8 +13,20 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 
 ### 参考資料
 
+#### x86命令
+
 * [coder32 edition | X86 Opcode and Instruction Reference 1.11](http://ref.x86asm.net/coder32.html)
 * [Assembly Programming on x86-64 Linux (05)](http://www.mztn.org/lxasm64/amd05.html)
 * [Assembly Programming on x86-64 Linux (04)](http://www.mztn.org/lxasm64/amd04.html)
 * [Tips　IA32（x86）命令一覧　Jから始まる命令　Jcc命令](http://softwaretechnique.jp/OS_Development/Tips/IA32_Instructions/Jcc.html)
 * [x86 and amd64 instruction reference](https://www.felixcloutier.com/x86/index.html)
+
+#### ELFのファイルフォーマット
+
+* [Tips　ELFフォーマットその１　ELFフォーマットについて](http://softwaretechnique.jp/OS_Development/Tips/ELF/elf01.html)
+* [ELF Format](http://caspar.hazymoon.jp/OpenBSD/annex/elf.html)
+
+#### xv6
+
+* [6.828 / Fall 2018](https://pdos.csail.mit.edu/6.828/2018/xv6.html)
+* [GitHub - mit-pdos/xv6-public: xv6 OS](https://github.com/mit-pdos/xv6-public)
