@@ -189,7 +189,9 @@ int step(void) {
 		OP_STR_CMP,
 		OP_STR_STO,
 		OP_STR_LOD,
-		OP_STR_SCA
+		OP_STR_SCA,
+		OP_STR_IN,
+		OP_STR_OUT
 	} op_string_kind = OP_STR_MOV; /* ストリング命令の種類 */
 	int op_width = 1; /* オペランドのバイト数 */
 	int jmp_take = 0; /* ジャンプを行うか */
@@ -382,6 +384,11 @@ int step(void) {
 			use_imm = 1;
 			one_byte_imm = 1;
 			src_kind = OP_KIND_IMM;
+		} else if ((fetch_data & 0xFC) == 0x6C) {
+			/* INS/OUTS */
+			op_kind = OP_STRING;
+			op_string_kind = (fetch_data & 0x03) < 2 ? OP_STR_IN : OP_STR_OUT;
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
 		} else if ((0x70 <= fetch_data && fetch_data < 0x80) || fetch_data == 0xE3 || fetch_data == 0xEB) {
 			/* 分岐 */
 			op_kind = OP_JUMP;
