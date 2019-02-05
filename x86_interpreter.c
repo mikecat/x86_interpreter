@@ -1063,6 +1063,7 @@ int step(void) {
 			case OP_NEG:
 				result64 = -(uint64_t)dest_value;
 				if ((dest_value & sign_mask) == (result64 & sign_mask) && dest_value != 0) next_eflags |= OF;
+				break;
 			default:
 				fprintf(stderr, "unknown arithmethc %d at %08"PRIx32"\n", (int)op_arithmetic_kind, inst_addr);
 				print_regs(stderr);
