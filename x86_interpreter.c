@@ -1051,7 +1051,31 @@ int step(void) {
 		}
 		break;
 	case OP_XCHG:
-		NOT_IMPLEMENTED(OP_XCHG)
+		result = src_value;
+		result_write = 1;
+		switch (src_kind) {
+		case OP_KIND_IMM:
+			fprintf(stderr, "tried to write into immediate value at %08"PRIx32"\n", inst_addr);
+			print_regs(stderr);
+			return 0;
+		case OP_KIND_MEM:
+			if (!step_memwrite(inst_addr, src_addr, dest_value, op_width)) return 0;
+			break;
+		case OP_KIND_REG:
+			{
+				uint32_t mask = (op_width >= 4 ? 0 : UINT32_C(0xffffffff) << (op_width * 8));
+				regs[src_reg_index] = (regs[src_reg_index] & mask) | (dest_value & ~mask);
+			}
+			break;
+		case OP_KIND_REG_HIGH8:
+			if (op_width != 1) {
+				fprintf(stderr, "tried to write high register with width other than 1 at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			regs[src_reg_index] = (regs[src_reg_index] & UINT32_C(0xffff00ff)) | ((dest_value & 0xff) << 8);
+			break;
+		}
 		break;
 	case OP_MOV:
 		result = src_value;
