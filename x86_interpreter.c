@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "dynamic_memory.h"
 #include "read_raw.h"
+#include "read_elf.h"
 
 #define CF 0x0001
 #define PF 0x0004
@@ -1024,6 +1025,9 @@ int main(int argc, char *argv[]) {
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--raw") == 0) {
 			if (++i < argc) { if (!read_raw(argv[i])) return 1; }
+			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
+		} else if (strcmp(argv[i], "--elf") == 0) {
+			if (++i < argc) { if (!read_elf(&initial_eip, argv[i])) return 1; }
 			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
