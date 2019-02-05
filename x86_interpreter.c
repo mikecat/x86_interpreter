@@ -201,6 +201,8 @@ int step(void) {
 	int use_mod_rm = 0; /* mod r/mを使うか */
 	int is_dest_reg = 0; /* mod r/mを使うとき、結果の書き込み先がr/mではなくregか */
 	int modrm_disable_src = 0; /* mod r/mを使う時、srcをmod r/mから設定するのをやめるか */
+	int direct_disp_size = 0; /* moffsを使うとき、そのサイズ */
+	int is_dest_direct_disp = 0; /* moffsをdestに使うか(sizeが0でないとき、偽 = srcに使う) */
 	int use_imm = 0; /* 即値を使うか */
 	int one_byte_imm = 0; /* 即値が1バイトか(偽 = オペランドのサイズ) */
 
@@ -499,6 +501,20 @@ int step(void) {
 			op_width = 1;
 			dest_kind = OP_KIND_REG;
 			dest_reg_index = EAX;
+		} else if ((fetch_data & 0xFC) == 0xA0) {
+			/* MOV with moffs */
+			op_kind = OP_MOV;
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
+			direct_disp_size = (is_addr_16bit ? 2 : 4);
+			if ((fetch_data & 0x2) == 0) {
+				is_dest_direct_disp = 0;
+				dest_kind = OP_KIND_REG;
+				dest_reg_index = EAX;
+			} else {
+				is_dest_direct_disp = 1;
+				src_kind = OP_KIND_REG;
+				src_reg_index = EAX;
+			}
 		} else if (0xA4 <= fetch_data && fetch_data <= 0xAF && (fetch_data & 0xFE) != 0xA8) {
 			/* ストリング命令 */
 			op_kind = OP_STRING;
@@ -865,6 +881,7 @@ int step(void) {
 
 	/* dispを解析する */
 	uint32_t disp = 0;
+	if (!use_mod_rm) disp_size = direct_disp_size;
 	if (disp_size > 0) {
 		disp = step_memread(&memread_ok, inst_addr, eip, disp_size);
 		if (!memread_ok) return 0;
@@ -909,6 +926,16 @@ int step(void) {
 			dest_kind = modrm_kind;
 			dest_reg_index = modrm_reg_index;
 			dest_addr = modrm_addr;
+		}
+	} else if (direct_disp_size > 0) {
+		uint32_t disp_value = disp;
+		if (direct_disp_size < 4) disp_value &= UINT32_C(0xffffffff) >> (8 * (4 - direct_disp_size));
+		if (is_dest_direct_disp) {
+			dest_kind = OP_KIND_MEM;
+			dest_reg_index = disp_value;
+		} else {
+			src_kind = OP_KIND_MEM;
+			src_reg_index = disp_value;
 		}
 	}
 
