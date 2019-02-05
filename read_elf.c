@@ -63,7 +63,7 @@ int read_elf(uint32_t* eip_value, const char* filename) {
 		free(filedata); return 0;
 	}
 	sheader = filedata + sh_offset;
-	for (i = 0; i < sh_ent_size; i++) {
+	for (i = 0; i < sh_num; i++) {
 		uint8_t* ent = sheader + sh_ent_size * i;
 		uint32_t type = read_num(ent + 4, 4);
 		uint32_t flags = read_num(ent + 8, 4);
