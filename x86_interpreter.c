@@ -507,6 +507,13 @@ int step(void) {
 			case 0xAE: op_string_kind = OP_STR_SCA; break;
 			}
 			op_width = (fetch_data & 1 ? (is_data_16bit ? 2 : 4) : 1);
+			if (op_string_kind == OP_STR_STO || op_string_kind == OP_STR_SCA) {
+				src_kind = OP_KIND_REG;
+				src_reg_index = EAX;
+			} else if (op_string_kind == OP_STR_LOD) {
+				dest_kind = OP_KIND_REG;
+				dest_reg_index = EAX;
+			}
 		} else if (fetch_data == 0xA8 || fetch_data == 0xA9) {
 			/* TEST AL/AX/EAX, imm8/imm16/imm32 */
 			op_kind = OP_ARITHMETIC;
@@ -1152,7 +1159,72 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_POPF)
 		break;
 	case OP_STRING:
-		NOT_IMPLEMENTED(OP_STRING)
+		{
+			int enable_zf = (op_string_kind == OP_STR_CMP || op_string_kind == OP_STR_SCA);
+			int enable_esi = (op_string_kind == OP_STR_MOV || op_string_kind == OP_STR_CMP ||
+				op_string_kind == OP_STR_LOD || op_string_kind == OP_STR_OUT);
+			int enable_edi = (op_string_kind == OP_STR_MOV || op_string_kind == OP_STR_CMP ||
+				op_string_kind == OP_STR_STO || op_string_kind == OP_STR_SCA || op_string_kind == OP_STR_IN);
+			uint32_t new_eflags = eflags;
+			int zero = 0;
+			uint32_t delta = (eflags & DF) ? -op_width : op_width;
+			if (op_string_kind == OP_STR_LOD) result_write = 1;
+			do {
+				uint32_t esi_addr = is_addr_16bit ? regs[ESI] & 0xffff : regs[ESI];
+				uint32_t edi_addr = is_addr_16bit ? regs[EDI] & 0xffff : regs[EDI];
+				uint32_t s;
+				switch (op_string_kind) {
+				case OP_STR_MOV:
+					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					if (!memread_ok) return 0;
+					if (!step_memwrite(inst_addr, edi_addr, s, op_width)) return 0;
+					break;
+				/*
+				case OP_STR_CMP:
+					break;
+				*/
+				case OP_STR_STO:
+					if (!step_memwrite(inst_addr, edi_addr, src_value, op_width)) return 0;
+					break;
+				case OP_STR_LOD:
+					result = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					if (!memread_ok) return 0;
+					break;
+				/*
+				case OP_STR_SCA:
+					break;
+				case OP_STR_IN:
+					break;
+				case OP_STR_OUT:
+					break;
+				*/
+				default:
+					fprintf(stderr, "unknown string operation %d at %08"PRIx32"\n", (int)op_string_kind, inst_addr);
+					print_regs(stderr);
+					return 0;
+				}
+				if (is_addr_16bit) {
+					if (enable_esi) {
+						regs[ESI] = (regs[ESI] & UINT32_C(0xffff0000)) | ((regs[ESI] + delta) & 0xffff);
+					}
+					if (enable_edi) {
+						regs[EDI] = (regs[EDI] & UINT32_C(0xffff0000)) | ((regs[EDI] + delta) & 0xffff);
+					}
+					if (is_rep) {
+						regs[ECX] = (regs[ECX] & UINT32_C(0xffff0000)) | ((regs[ECX] - 1) & 0xffff);
+					}
+				} else {
+					if (enable_esi) regs[ESI] += delta;
+					if (enable_edi) regs[EDI] += delta;
+					if (is_rep) regs[ECX] -= 1;
+				}
+				zero = (new_eflags & ZF);
+			} while (is_rep && (is_addr_16bit ? regs[ECX] & 0xffff : regs[ECX]) != 0 &&
+			(!enable_zf || (is_rep_while_zero ? zero : !zero)));
+			if (enable_zf) {
+				eflags = new_eflags;
+			}
+		}
 		break;
 	case OP_CALL:
 		if (!step_push(inst_addr, eip, op_width, is_addr_16bit)) return 0;
