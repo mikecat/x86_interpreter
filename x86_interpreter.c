@@ -134,6 +134,8 @@ int step(void) {
 		OP_ARITIMETIC,
 		OP_XCHG,
 		OP_MOV,
+		OP_MOVZX,
+		OP_MOVSX,
 		OP_LEA,
 		OP_INCDEC,
 		OP_NOT,
@@ -263,6 +265,18 @@ int step(void) {
 			case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
 			}
 			if (fetch_data & 0x01) jmp_take = !jmp_take;
+		} else if ((fetch_data & 0xFE) == 0xB6) {
+			/* MOVZX */
+			op_kind = OP_MOVZX;
+			op_width = (fetch_data & 0x01) ? 2 : 1;
+			use_mod_rm = 1;
+			is_dest_reg = 1;
+		} else if ((fetch_data & 0xFE) == 0xBE) {
+			/* MOVSX */
+			op_kind = OP_MOVSX;
+			op_width = (fetch_data & 0x01) ? 2 : 1;
+			use_mod_rm = 1;
+			is_dest_reg = 1;
 		} else {
 			fprintf(stderr, "unsupported opcode \"0f %02"PRIx8"\" at %08"PRIx32"\n\n", fetch_data, inst_addr);
 			print_regs(stderr);
@@ -1039,6 +1053,17 @@ int step(void) {
 	case OP_MOV:
 		result = src_value;
 		result_write = 1;
+		break;
+	case OP_MOVZX:
+		result = src_value;
+		if (op_width < 4) result &= UINT32_C(0xffffffff) >> (8 * (4 - op_width));
+		result_write = 1;
+		op_width = is_data_16bit ? 2 : 4;
+		break;
+	case OP_MOVSX:
+		result = src_value;
+		result_write = 1;
+		op_width = is_data_16bit ? 2 : 4;
 		break;
 	case OP_LEA:
 		result = src_value;
