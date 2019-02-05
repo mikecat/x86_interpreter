@@ -1165,6 +1165,7 @@ int step(void) {
 				op_string_kind == OP_STR_LOD || op_string_kind == OP_STR_OUT);
 			int enable_edi = (op_string_kind == OP_STR_MOV || op_string_kind == OP_STR_CMP ||
 				op_string_kind == OP_STR_STO || op_string_kind == OP_STR_SCA || op_string_kind == OP_STR_IN);
+			uint64_t sign_mask = (UINT64_C(1) << (op_width * 8 - 1));
 			uint32_t new_eflags = eflags;
 			int zero = 0;
 			uint32_t delta = (eflags & DF) ? -op_width : op_width;
@@ -1172,17 +1173,19 @@ int step(void) {
 			do {
 				uint32_t esi_addr = is_addr_16bit ? regs[ESI] & 0xffff : regs[ESI];
 				uint32_t edi_addr = is_addr_16bit ? regs[EDI] & 0xffff : regs[EDI];
-				uint32_t s;
+				uint32_t s, d;
 				switch (op_string_kind) {
 				case OP_STR_MOV:
 					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
 					if (!memread_ok) return 0;
 					if (!step_memwrite(inst_addr, edi_addr, s, op_width)) return 0;
 					break;
-				/*
 				case OP_STR_CMP:
+					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					if (!memread_ok) return 0;
+					d = step_memread(&memread_ok, inst_addr, edi_addr, op_width);
+					if (!memread_ok) return 0;
 					break;
-				*/
 				case OP_STR_STO:
 					if (!step_memwrite(inst_addr, edi_addr, src_value, op_width)) return 0;
 					break;
@@ -1190,9 +1193,12 @@ int step(void) {
 					result = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
 					if (!memread_ok) return 0;
 					break;
-				/*
 				case OP_STR_SCA:
+					s = src_value;
+					d = step_memread(&memread_ok, inst_addr, edi_addr, op_width);
+					if (!memread_ok) return 0;
 					break;
+				/*
 				case OP_STR_IN:
 					break;
 				case OP_STR_OUT:
@@ -1202,6 +1208,23 @@ int step(void) {
 					fprintf(stderr, "unknown string operation %d at %08"PRIx32"\n", (int)op_string_kind, inst_addr);
 					print_regs(stderr);
 					return 0;
+				}
+				if (op_string_kind == OP_STR_CMP || op_string_kind == OP_STR_SCA) {
+					uint32_t next_eflags = new_eflags & ~(OF | SF | ZF | AF | PF | CF);
+					uint64_t res = (uint64_t)s - (uint64_t)d;
+					int i, par;
+					if ((s & sign_mask) == (-d & sign_mask) &&
+					(res & sign_mask) != (s & sign_mask)) next_eflags |= OF;
+					if (res & sign_mask) next_eflags |= SF;
+					if ((res & ((UINT64_C(1) << (op_width * 8)) - 1)) == 0) next_eflags |= ZF;
+					if (res & (UINT64_C(1) << (op_width * 8))) next_eflags |= CF;
+					par = 0;
+					for (i = 0; i < 8; i++) {
+						if (res & (1 << i)) par++;
+					}
+					if (par % 2 == 0) next_eflags |= PF;
+					new_eflags = next_eflags;
+					zero = (new_eflags & ZF);
 				}
 				if (is_addr_16bit) {
 					if (enable_esi) {
@@ -1218,7 +1241,6 @@ int step(void) {
 					if (enable_edi) regs[EDI] += delta;
 					if (is_rep) regs[ECX] -= 1;
 				}
-				zero = (new_eflags & ZF);
 			} while (is_rep && (is_addr_16bit ? regs[ECX] & 0xffff : regs[ECX]) != 0 &&
 			(!enable_zf || (is_rep_while_zero ? zero : !zero)));
 			if (enable_zf) {
