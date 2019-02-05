@@ -842,7 +842,6 @@ int step(void) {
 				} else {
 					if (rm == 4) {
 						use_sib = 1;
-						if (mod == 0) modrm_no_reg = 1;
 					} else {
 						modrm_reg_index = rm;
 					}
@@ -876,7 +875,10 @@ int step(void) {
 				case 3: modrm_reg2_scale = 8; break;
 			}
 		}
-		if (r32 == 5 && modrm_no_reg) disp_size = 4;
+		if (r32 == 5 && disp_size == 0) {
+			disp_size = 4;
+			modrm_no_reg = 1;
+		}
 	}
 
 	/* dispを解析する */
