@@ -1053,25 +1053,69 @@ int step(void) {
 		}
 		break;
 	case OP_SHIFT:
-		NOT_IMPLEMENTED(OP_SHIFT)
-		/*
-		switch (op_shift_kind) {
-		case OP_ROL:
-			break;
-		case OP_ROR:
-			break;
-		case OP_RCL:
-			break;
-		case OP_RCR:
-			break;
-		case OP_SHL:
-			break;
-		case OP_SHR:
-			break;
-		case OP_SAR:
-			break;
+		{
+			uint32_t shift_width = src_value & 31;
+			if (shift_width > 0) {
+				uint32_t next_eflags = eflags;
+				uint32_t sign_mask = UINT32_C(1) << (8 * op_width - 1);
+				uint64_t upper_carry_mask = UINT64_C(1) << (8 * op_width);
+				uint64_t result64;
+				int enable_result_flags = 0;
+				int carry = 0;
+				switch (op_shift_kind) {
+				/*
+				case OP_ROL:
+					break;
+				case OP_ROR:
+					break;
+				case OP_RCL:
+					break;
+				case OP_RCR:
+					break;
+				*/
+				case OP_SHL:
+					result64 = (uint64_t)dest_value << shift_width;
+					carry = (result64 & upper_carry_mask) != 0;
+					enable_result_flags = 1;
+					break;
+				case OP_SHR:
+					result64 = (uint64_t)dest_value >> shift_width;
+					enable_result_flags = 1;
+					break;
+				case OP_SAR:
+					result64 = dest_value;
+					if (result64 & sign_mask) result64 |= UINT64_C(0xffffffff00000000);
+					result64 = result64 >> shift_width;
+					carry = ((dest_value >> (shift_width - 1)) & 1) != 0;
+					enable_result_flags = 1;
+					break;
+				default:
+					fprintf(stderr, "unknown shift %d at %08"PRIx32"\n", (int)op_shift_kind, inst_addr);
+					print_regs(stderr);
+					return 0;
+				}
+				result = (uint32_t)result64;
+				result_write = 1;
+				if (shift_width == 1) {
+					if ((dest_value & sign_mask) == (result64 & sign_mask)) {
+						next_eflags &= ~OF;
+					} else {
+						next_eflags |= OF;
+					}
+				}
+				if (carry) next_eflags |= CF; else next_eflags &= ~CF;
+				if (enable_result_flags) {
+					int i, par = 0;
+					for (i = 0; i < 8; i++) {
+						if ((result64 >> i) & 1) par++;
+					}
+					if (par % 2 == 0) next_eflags |= PF; else next_eflags &= ~PF;
+					if ((result64 & (upper_carry_mask - 1)) == 0) next_eflags |= ZF; else next_eflags &= ~ZF;
+					if (result64 & sign_mask) next_eflags |= SF; else next_eflags &= ~SF;
+				}
+				eflags = next_eflags;
+			}
 		}
-		*/
 		break;
 	case OP_XCHG:
 		result = src_value;
