@@ -26,6 +26,10 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 * [Tips　ELFフォーマットその１　ELFフォーマットについて](http://softwaretechnique.jp/OS_Development/Tips/ELF/elf01.html)
 * [ELF Format](http://caspar.hazymoon.jp/OpenBSD/annex/elf.html)
 
+#### PEファイルフォーマット
+
+* [PE(Portable Executable)ファイルフォーマットの概要](http://home.a00.itscom.net/hatada/mcc/doc/pe.html)
+
 #### xv6
 
 * [6.828 / Fall 2018](https://pdos.csail.mit.edu/6.828/2018/xv6.html)
