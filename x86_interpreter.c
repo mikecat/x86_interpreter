@@ -490,9 +490,11 @@ int step(void) {
 		} else if (fetch_data == 0x9C) {
 			/* PUSHF */
 			op_kind = OP_PUSHF;
+			op_width = (is_data_16bit ? 2 : 4);
 		} else if (fetch_data == 0x9D) {
 			/* POPF */
 			op_kind = OP_POPF;
+			op_width = (is_data_16bit ? 2 : 4);
 		} else if (fetch_data == 0x9E) {
 			/* SAHF */
 			op_kind = OP_SAHF;
@@ -1283,10 +1285,18 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_POPA)
 		break;
 	case OP_PUSHF:
-		NOT_IMPLEMENTED(OP_PUSHF)
+		if (!step_push(inst_addr, eflags & UINT32_C(0x00fcffff), op_width, is_addr_16bit)) return 0;
 		break;
 	case OP_POPF:
-		NOT_IMPLEMENTED(OP_POPF)
+		{
+			uint32_t new_eflags = step_pop(&memread_ok, inst_addr, op_width, is_addr_16bit);
+			if (!memread_ok) return 0;
+			if (is_data_16bit) {
+				eflags = (eflags & UINT32_C(0xffff0000)) | (new_eflags & 0xffff);
+			} else {
+				eflags = (eflags & UINT32_C(0x001a0000)) | (new_eflags & UINT32_C(0xff24ffff));
+			}
+		}
 		break;
 	case OP_STRING:
 		{
