@@ -1526,6 +1526,9 @@ int step(void) {
 		}
 	}
 
+	/* フラグIDを0に固定し、CPUID命令が無いことを示す */
+	eflags &= ~UINT32_C(0x00200000);
+
 	return 1;
 }
 
