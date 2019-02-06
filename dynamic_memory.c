@@ -12,9 +12,9 @@
 typedef uint8_t allocate_unit[ALLOCATE_UNIT_SIZE];
 typedef allocate_unit* allocate_unit_table[SECOND_TABLE_SIZE];
 
-allocate_unit_table* aut_table[FIRST_TABLE_SIZE];
+static allocate_unit_table* aut_table[FIRST_TABLE_SIZE];
 
-int get_idxs(int* fidx_s, int* sidx_s, int* fidx_e, int* sidx_e, uint32_t addr, uint32_t size) {
+static int get_idxs(int* fidx_s, int* sidx_s, int* fidx_e, int* sidx_e, uint32_t addr, uint32_t size) {
 	if (size == 0) return 0;
 	size--;
 	if (size > UINT32_MAX - addr) return 0;

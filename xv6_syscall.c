@@ -3,9 +3,9 @@
 #include "dynamic_memory.h"
 #include "xv6_syscall.h"
 
-int enable_sbrk = 0;
-uint32_t sbrk_origin = 0;
-uint32_t sbrk_addr = 0;
+static int enable_sbrk = 0;
+static uint32_t sbrk_origin = 0;
+static uint32_t sbrk_addr = 0;
 
 void initialize_xv6_sbrk(uint32_t initial_addr) {
 	enable_sbrk = 1;
@@ -13,7 +13,7 @@ void initialize_xv6_sbrk(uint32_t initial_addr) {
 	sbrk_addr = initial_addr;
 }
 
-uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
+static uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
 	uint8_t buffer[4];
 	uint32_t result = 0;
 	uint32_t i;

@@ -6,7 +6,7 @@
 #include "read_elf.h"
 #include "xv6_syscall.h"
 
-int use_xv6_syscall = 0;
+static int use_xv6_syscall = 0;
 
 #define CF 0x0001
 #define PF 0x0004
@@ -52,7 +52,7 @@ int memory_access(uint8_t* data_read, uint32_t addr, uint8_t data, int we) {
 	}
 }
 
-uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, int size) {
+static uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, int size) {
 	uint32_t res = 0;
 	int i;
 	for (i = 0; i < size; i++) {
@@ -77,7 +77,7 @@ uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, int size)
 	return res;
 }
 
-int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
+static int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
 	int i;
 	for (i = 0; i < size; i++) {
 		uint32_t this_addr = addr + i;
@@ -91,7 +91,7 @@ int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
 	return 1;
 }
 
-int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_addr_16bit) {
+static int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_addr_16bit) {
 	uint32_t addr = regs[ESP];
 	if (is_addr_16bit) addr &= 0xffff;
 	addr -= op_width;
@@ -104,7 +104,7 @@ int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_addr_16bi
 	return 1;
 }
 
-uint32_t step_pop(int* success, uint32_t inst_addr, int op_width, int is_addr_16bit) {
+static uint32_t step_pop(int* success, uint32_t inst_addr, int op_width, int is_addr_16bit) {
 	int memread_ok = 0;
 	uint32_t next_esp;
 	uint32_t value = step_memread(&memread_ok, inst_addr,

@@ -5,7 +5,7 @@
 #include "read_file.h"
 #include "read_elf.h"
 
-uint32_t read_num(const uint8_t* data, int size) {
+static uint32_t read_num(const uint8_t* data, int size) {
 	uint32_t ret = 0;
 	int i;
 	for (i = 0; i < size; i++) {
