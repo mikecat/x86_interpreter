@@ -29,6 +29,7 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 #### PEファイルフォーマット
 
 * [PE(Portable Executable)ファイルフォーマットの概要](http://home.a00.itscom.net/hatada/mcc/doc/pe.html)
+* [アレ用の何か](http://hp.vector.co.jp/authors/VA050396/index.html)
 
 #### xv6
 
