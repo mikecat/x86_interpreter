@@ -14,7 +14,7 @@ static uint32_t read_num(const uint8_t* data, int size) {
 	return ret;
 }
 
-int read_pe(uint32_t* eip_value, uint32_t* stack_size, const char* filename) {
+int read_pe(uint32_t* eip_value, uint32_t* stack_size, pe_import_params* import_params, const char* filename) {
 	size_t filesize = 0;
 	uint8_t* filedata = read_whole_file(&filesize, filename);
 	uint32_t newheader_offset;
@@ -66,6 +66,42 @@ int read_pe(uint32_t* eip_value, uint32_t* stack_size, const char* filename) {
 	if (UINT32_MAX - image_base < entrypoint) {
 		fprintf(stderr, "PE entrypoint out of address space\n");
 		free(filedata); return 0;
+	}
+	if (import_params != NULL) {
+		uint32_t import_addr, import_size, iat_addr, iat_size;
+		if (optheader_size >= 112) {
+			import_addr = read_num(optheader + 104, 4);
+			import_size = read_num(optheader + 108, 4);
+		} else {
+			import_addr = 0;
+			import_size = 0;
+		}
+		if (optheader_size >= 200) {
+			iat_addr = read_num(optheader + 192, 4);
+			iat_size = read_num(optheader + 196, 4);
+		} else {
+			iat_addr = 0;
+			iat_size = 0;
+		}
+		if (import_size > 0) {
+			if (UINT32_MAX - image_base < import_addr ||
+			UINT32_MAX - (image_base + import_addr) < import_size - 1) {
+				fprintf(stderr, "PE import informaton out of address space\n");
+				free(filedata); return 0;
+			}
+		}
+		if (iat_size > 0) {
+			if (UINT32_MAX - image_base < iat_addr ||
+			UINT32_MAX - (image_base + iat_addr) < iat_size - 1) {
+				fprintf(stderr, "PE import address table out of address space\n");
+				free(filedata); return 0;
+			}
+		}
+		import_params->image_base = image_base;
+		import_params->import_addr = image_base + import_addr;
+		import_params->import_size = import_size;
+		import_params->iat_addr = image_base + iat_addr;
+		import_params->iat_size = iat_size;
 	}
 	if (section_table_size > filesize || filesize - section_table_size < newheader_offset + 24 + optheader_size) {
 		fprintf(stderr, "file size too small for PE section table\n");

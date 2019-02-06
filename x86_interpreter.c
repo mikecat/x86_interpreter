@@ -6,8 +6,11 @@
 #include "read_elf.h"
 #include "read_pe.h"
 #include "xv6_syscall.h"
+#include "pe_import.h"
 
 static int use_xv6_syscall = 0;
+static int use_pe_import = 0;
+static pe_import_params import_params;
 
 #define CF 0x0001
 #define PF 0x0004
@@ -1385,12 +1388,22 @@ int step(void) {
 		break;
 	case OP_CALL_ABSOLUTE:
 		if (!step_push(inst_addr, eip, op_width, is_addr_16bit)) return 0;
-		eip = src_value;
-		if (is_data_16bit) eip &= 0xffff;
+		if (use_pe_import && import_params.iat_size >= 4 && src_kind == OP_KIND_MEM &&
+		import_params.iat_addr <= src_addr && src_addr <= import_params.iat_addr + (import_params.iat_size - 4)) {
+			if (!pe_import(&eip, regs, src_addr)) return 0;
+		} else {
+			eip = src_value;
+			if (is_data_16bit) eip &= 0xffff;
+		}
 		break;
 	case OP_JUMP_ABSOLUTE:
-		eip = src_value;
-		if (is_data_16bit) eip &= 0xffff;
+		if (use_pe_import && import_params.iat_size >= 4 && src_kind == OP_KIND_MEM &&
+		import_params.iat_addr <= src_addr && src_addr <= import_params.iat_addr + (import_params.iat_size - 4)) {
+			if (!pe_import(&eip, regs, src_addr)) return 0;
+		} else {
+			eip = src_value;
+			if (is_data_16bit) eip &= 0xffff;
+		}
 		break;
 	case OP_CALL_FAR:
 		NOT_IMPLEMENTED(OP_CALL_FAR)
@@ -1558,7 +1571,7 @@ int main(int argc, char *argv[]) {
 			if (++i < argc) { if (!read_elf(&initial_eip, argv[i])) return 1; }
 			else { fprintf(stderr, "no filename for --elf\n"); return 1; }
 		} else if (strcmp(argv[i], "--pe") == 0) {
-			if (++i < argc) { if (!read_pe(&initial_eip, &stack_size, argv[i])) return 1; }
+			if (++i < argc) { if (!read_pe(&initial_eip, &stack_size, &import_params, argv[i])) return 1; }
 			else { fprintf(stderr, "no filename for --pe\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
@@ -1598,6 +1611,8 @@ int main(int argc, char *argv[]) {
 				}
 				initialize_xv6_sbrk(sbrk_origin);
 			} else { fprintf(stderr, "no xv6 sbrk origin for --xv6-sbrk\n"); return 1;}
+		} else if (strcmp(argv[i], "--pe-import") == 0) {
+			use_pe_import = 1;
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
@@ -1606,6 +1621,9 @@ int main(int argc, char *argv[]) {
 	if (stack_size > initial_esp) {
 		fprintf(stderr, "stack too big compared to esp\n");
 		return 1;
+	}
+	if (use_pe_import) {
+		if (!pe_import_initialize(&import_params)) return 1;
 	}
 
 	eip = initial_eip;

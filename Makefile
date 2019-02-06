@@ -5,7 +5,7 @@ TARGET=x86_interpreter
 
 OBJS=x86_interpreter.o dynamic_memory.o \
 	read_file.o read_raw.o read_elf.o read_pe.o \
-	xv6_syscall.o
+	xv6_syscall.o pe_import.o
 
 $(TARGET): $(OBJS)
 	$(CC) -o $@ $^
