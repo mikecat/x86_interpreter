@@ -1552,7 +1552,7 @@ int main(int argc, char *argv[]) {
 			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
 		} else if (strcmp(argv[i], "--elf") == 0) {
 			if (++i < argc) { if (!read_elf(&initial_eip, argv[i])) return 1; }
-			else { fprintf(stderr, "no filename for --raw\n"); return 1; }
+			else { fprintf(stderr, "no filename for --elf\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
 		} else if (strcmp(argv[i], "--eip") == 0) {
