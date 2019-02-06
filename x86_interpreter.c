@@ -1384,10 +1384,13 @@ int step(void) {
 		if (jmp_take) eip += src_value;
 		break;
 	case OP_CALL_ABSOLUTE:
-		NOT_IMPLEMENTED(OP_CALL_ABSOLUTE)
+		if (!step_push(inst_addr, eip, op_width, is_addr_16bit)) return 0;
+		eip = src_value;
+		if (is_data_16bit) eip &= 0xffff;
 		break;
 	case OP_JUMP_ABSOLUTE:
-		NOT_IMPLEMENTED(OP_JUMP_ABSOLUTE)
+		eip = src_value;
+		if (is_data_16bit) eip &= 0xffff;
 		break;
 	case OP_CALL_FAR:
 		NOT_IMPLEMENTED(OP_CALL_FAR)
