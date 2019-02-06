@@ -4,6 +4,7 @@
 #include "dynamic_memory.h"
 #include "read_raw.h"
 #include "read_elf.h"
+#include "read_pe.h"
 #include "xv6_syscall.h"
 
 static int use_xv6_syscall = 0;
@@ -1553,6 +1554,9 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(argv[i], "--elf") == 0) {
 			if (++i < argc) { if (!read_elf(&initial_eip, argv[i])) return 1; }
 			else { fprintf(stderr, "no filename for --elf\n"); return 1; }
+		} else if (strcmp(argv[i], "--pe") == 0) {
+			if (++i < argc) { if (!read_pe(&initial_eip, &stack_size, argv[i])) return 1; }
+			else { fprintf(stderr, "no filename for --pe\n"); return 1; }
 		} else if (strcmp(argv[i], "--trace") == 0) {
 			enable_trace = 1;
 		} else if (strcmp(argv[i], "--eip") == 0) {
