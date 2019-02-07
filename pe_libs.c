@@ -103,6 +103,9 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 		/* 無視 */
 		regs[EAX] = 0;
 		return 4;
+	} else if (strcmp(func_name, "GetModuleHandleA") == 0) {
+		regs[EAX] = 0;
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
