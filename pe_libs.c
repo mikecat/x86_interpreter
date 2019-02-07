@@ -100,6 +100,33 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "__p__environ") == 0) {
 		regs[EAX] = WORK_ENV0;
 		return 0;
+	} else if (strcmp(func_name, "puts") == 0) {
+		uint32_t ptr;
+		uint32_t chr;
+		int ok;
+		ptr = dmem_read_value(&ok, regs[ESP] + 4, 4);
+		if (!ok) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		for (;;) {
+			chr = dmem_read_value(&ok, ptr, 1);
+			if (!ok) {
+				regs[EAX] = -1;
+				return 0;
+			}
+			if (chr == 0) break;
+			putchar(chr);
+			ptr++;
+		}
+		putchar('\n');
+		regs[EAX] = 1;
+		return 0;
+	} else if (strcmp(func_name, "_cexit") == 0) {
+		/* atexitで登録した関数を実行 */
+		/* バッファをフラッシュ */
+		/* ストリームを閉じる */
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
