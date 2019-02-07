@@ -141,6 +141,8 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "GetModuleHandleA") == 0) {
 		regs[EAX] = 0;
 		return 0;
+	} else if (strcmp(func_name, "ExitProcess") == 0) {
+		return PE_LIB_EXEC_EXIT;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
