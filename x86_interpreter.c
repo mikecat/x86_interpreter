@@ -1584,6 +1584,7 @@ int main(int argc, char *argv[]) {
 	int i;
 	int enable_trace = 0;
 	int enable_args = 0;
+	int import_as_iat = 0;
 	uint32_t initial_eip = 0;
 	uint32_t initial_esp = UINT32_C(0xfffff000);
 	uint32_t stack_size = 4096;
@@ -1645,6 +1646,8 @@ int main(int argc, char *argv[]) {
 					return 1;
 				}
 			} else { fprintf(stderr, "no work buffer origin for --pe-import\n"); return 1;}
+		} else if (strcmp(argv[i], "--pe-import-as-iat") == 0) {
+			import_as_iat = 1;
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
@@ -1701,6 +1704,10 @@ int main(int argc, char *argv[]) {
 		num_buffer = UINT32_C(0xfffffff0);
 		dmemory_write(&num_buffer, current_addr, sizeof(num_buffer));
 		regs[ESP] = current_addr;
+	}
+	if (import_as_iat) {
+		import_params.iat_addr = import_params.import_addr;
+		import_params.iat_size = import_params.import_size;
 	}
 	if (use_pe_import) {
 		if (!pe_import_initialize(&import_params, pe_import_work, argc2, argv_addr)) return 1;
