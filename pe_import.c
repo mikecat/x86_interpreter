@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "x86_regs.h"
 #include "pe_import.h"
+#include "pe_libs.h"
 #include "dynamic_memory.h"
 
 typedef struct {
@@ -49,7 +50,7 @@ static char* read_string_dmem(uint32_t addr) {
 	return ret;
 }
 
-int pe_import_initialize(const pe_import_params* params) {
+int pe_import_initialize(const pe_import_params* params, uint32_t work_start, uint32_t argc, uint32_t argv) {
 	uint32_t iat_end = params->iat_addr + (params->iat_size > 0 ? params->iat_size - 1 : 0);
 	free(imported_libs);
 	imported_libs = NULL;
@@ -148,13 +149,14 @@ int pe_import_initialize(const pe_import_params* params) {
 		}
 		imported_lib_count = i;
 	}
-	return 1;
+	return pe_libs_initialize(work_start, argc, argv);
 }
 
 int pe_import(uint32_t* eip, uint32_t regs[], uint32_t addr) {
 	uint32_t i;
 	const imported_lib_info* called_lib = NULL;
 	const func_info* called_func = NULL;
+	uint32_t stack_remove_size;
 	for (i = 0; i < imported_lib_count; i++) {
 		if (imported_libs[i].iat_addr <= addr && addr - imported_libs[i].iat_addr < imported_libs[i].iat_size) {
 			uint32_t offset = addr - imported_libs[i].iat_addr;
@@ -165,17 +167,12 @@ int pe_import(uint32_t* eip, uint32_t regs[], uint32_t addr) {
 			break;
 		}
 	}
-	if (called_func != NULL) {
-		printf("function ");
-		if (called_func->is_ord) {
-			printf("#%"PRIu16, called_func->hint_or_ord);
-		} else {
-			printf("%s()", called_func->name);
-		}
-		printf(" in library %s is called.\n", called_lib->name);
-	}
+	stack_remove_size = pe_lib_exec(regs, called_lib->name,
+		called_func->is_ord ? NULL : called_func->name,
+		called_func->is_ord ? called_func->hint_or_ord : 0);
+	if (stack_remove_size == PE_LIB_EXEC_FAILED) return 0;
 	/* ret */
 	dmemory_read(eip, regs[ESP], 4);
-	regs[ESP] += 4;
+	regs[ESP] += 4 + stack_remove_size;
 	return 1;
 }

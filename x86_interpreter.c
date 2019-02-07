@@ -1581,6 +1581,8 @@ int main(int argc, char *argv[]) {
 	uint32_t initial_eip = 0;
 	uint32_t initial_esp = UINT32_C(0xfffff000);
 	uint32_t stack_size = 4096;
+	uint32_t pe_import_work = UINT32_C(0x80000000);
+	uint32_t argc2 = 0, argv_addr = 0;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--raw") == 0) {
 			if (++i < argc) { if (!read_raw(argv[i])) return 1; }
@@ -1631,6 +1633,12 @@ int main(int argc, char *argv[]) {
 			} else { fprintf(stderr, "no xv6 sbrk origin for --xv6-sbrk\n"); return 1;}
 		} else if (strcmp(argv[i], "--pe-import") == 0) {
 			use_pe_import = 1;
+			if (++i < argc) {
+				if (!str_to_uint32(&pe_import_work, argv[i])) {
+					fprintf(stderr, "invalid PE import libs work buffer origin %s\n", argv[i]);
+					return 1;
+				}
+			} else { fprintf(stderr, "no work buffer origin for --pe-import\n"); return 1;}
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
@@ -1640,20 +1648,18 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "stack too big compared to esp\n");
 		return 1;
 	}
-	if (use_pe_import) {
-		if (!pe_import_initialize(&import_params)) return 1;
-	}
 
 	eip = initial_eip;
 	eflags = UINT32_C(0x00000002);
 	regs[ESP] = initial_esp;
 	dmemory_allocate(initial_esp - stack_size, stack_size);
 	if (enable_args) {
-		uint32_t argc2 = argc - i, j;
+		uint32_t j;
 		char** argv2 = argv + i;
 		uint32_t stack_limit = initial_esp - stack_size;
-		uint32_t argv_addr, current_addr = initial_esp;
+		uint32_t current_addr = initial_esp;
 		uint32_t num_buffer = 0;
+		argc2 = argc - i;
 		/* argvが指す配列の領域を確保する */
 		if (argc2 == UINT32_MAX || UINT32_MAX / 4 < (argc2 + 1)) {
 			fprintf(stderr, "too many arguments\n");
@@ -1689,6 +1695,9 @@ int main(int argc, char *argv[]) {
 		num_buffer = UINT32_C(0xfffffff0);
 		dmemory_write(&num_buffer, current_addr, sizeof(num_buffer));
 		regs[ESP] = current_addr;
+	}
+	if (use_pe_import) {
+		if (!pe_import_initialize(&import_params, pe_import_work, argc2, argv_addr)) return 1;
 	}
 
 	if (enable_trace) {
