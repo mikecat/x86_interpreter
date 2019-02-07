@@ -50,6 +50,13 @@ static char* read_string_dmem(uint32_t addr) {
 	return ret;
 }
 
+static void write_num(uint8_t* out, uint32_t value, int size) {
+	int i;
+	for (i = 0; i < size; i++) {
+		out[i] = (value >> (8 * i)) & 0xff;
+	}
+}
+
 int pe_import_initialize(const pe_import_params* params, uint32_t work_start, uint32_t argc, uint32_t argv) {
 	uint32_t iat_end = params->iat_addr + (params->iat_size > 0 ? params->iat_size - 1 : 0);
 	free(imported_libs);
@@ -142,6 +149,8 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 						new_func->is_ord = 0;
 						new_func->hint_or_ord = read_num(hint, 2);
 					}
+					write_num(entry, imported_libs[i].iat_addr + j * 4, 4);
+					dmemory_write(entry, imported_libs[i].iat_addr + j * 4, 4);
 				}
 				imported_libs[i].func_num = j;
 				imported_libs[i].iat_size = j * 4;
@@ -152,14 +161,14 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 	return pe_libs_initialize(work_start, argc, argv);
 }
 
-int pe_import(uint32_t* eip, uint32_t regs[], uint32_t addr) {
+int pe_import(uint32_t* eip, uint32_t regs[]) {
 	uint32_t i;
 	const imported_lib_info* called_lib = NULL;
 	const func_info* called_func = NULL;
 	uint32_t stack_remove_size;
 	for (i = 0; i < imported_lib_count; i++) {
-		if (imported_libs[i].iat_addr <= addr && addr - imported_libs[i].iat_addr < imported_libs[i].iat_size) {
-			uint32_t offset = addr - imported_libs[i].iat_addr;
+		if (imported_libs[i].iat_addr <= *eip && *eip - imported_libs[i].iat_addr < imported_libs[i].iat_size) {
+			uint32_t offset = *eip - imported_libs[i].iat_addr;
 			called_lib = &imported_libs[i];
 			if (offset % 4 == 0) {
 				called_func = &imported_libs[i].funcs[offset / 4];

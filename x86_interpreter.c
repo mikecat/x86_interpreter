@@ -213,6 +213,11 @@ int step(void) {
 
 	uint32_t imm_value = 0; /* 即値の値 */
 
+	if (use_pe_import && import_params.iat_size >= 4 &&
+	import_params.iat_addr <= eip && eip - import_params.iat_addr < import_params.iat_size) {
+		return pe_import(&eip, regs);
+	}
+
 	/* プリフィックスを解析する */
 	for(;;) {
 		/* 命令フェッチ */
@@ -1400,22 +1405,12 @@ int step(void) {
 		break;
 	case OP_CALL_ABSOLUTE:
 		if (!step_push(inst_addr, eip, op_width, is_addr_16bit)) return 0;
-		if (use_pe_import && import_params.iat_size >= 4 && src_kind == OP_KIND_MEM &&
-		import_params.iat_addr <= src_addr && src_addr <= import_params.iat_addr + (import_params.iat_size - 4)) {
-			if (!pe_import(&eip, regs, src_addr)) return 0;
-		} else {
-			eip = src_value;
-			if (is_data_16bit) eip &= 0xffff;
-		}
+		eip = src_value;
+		if (is_data_16bit) eip &= 0xffff;
 		break;
 	case OP_JUMP_ABSOLUTE:
-		if (use_pe_import && import_params.iat_size >= 4 && src_kind == OP_KIND_MEM &&
-		import_params.iat_addr <= src_addr && src_addr <= import_params.iat_addr + (import_params.iat_size - 4)) {
-			if (!pe_import(&eip, regs, src_addr)) return 0;
-		} else {
-			eip = src_value;
-			if (is_data_16bit) eip &= 0xffff;
-		}
+		eip = src_value;
+		if (is_data_16bit) eip &= 0xffff;
 		break;
 	case OP_CALL_FAR:
 		NOT_IMPLEMENTED(OP_CALL_FAR)
