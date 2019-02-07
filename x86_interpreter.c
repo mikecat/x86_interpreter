@@ -180,6 +180,7 @@ int step(void) {
 		OP_CMC,
 		OP_SET_FLAG,
 		OP_CLEAR_FLAG,
+		OP_FPU,
 	} op_kind = OP_ARITHMETIC; /* 命令の種類 */
 	enum {
 		OP_ADD, OP_ADC, OP_SUB, OP_SBB, OP_AND, OP_OR, OP_XOR, OP_CMP, OP_TEST, OP_NEG,
@@ -209,6 +210,7 @@ int step(void) {
 	int is_dest_direct_disp = 0; /* moffsをdestに使うか(sizeが0でないとき、偽 = srcに使う) */
 	int use_imm = 0; /* 即値を使うか */
 	int one_byte_imm = 0; /* 即値が1バイトか(偽 = オペランドのサイズ) */
+	int op_fpu_kind = 0; /* FPU系命令のカテゴリ */
 
 	/* オペランドの情報 */
 	enum {
@@ -619,6 +621,11 @@ int step(void) {
 		} else if (fetch_data == 0xCF) {
 			/* IRET */
 			op_kind = OP_IRET;
+		} else if ((fetch_data & 0xF8) == 0xD8) {
+			/* FPU instructions */
+			op_kind = OP_FPU;
+			use_mod_rm = 1;
+			op_fpu_kind = fetch_data & 0x07;
 		} else if (fetch_data == 0xE0 || fetch_data == 0xE1 || fetch_data == 0xE2) {
 			/* LOOP* */
 			op_kind = OP_LOOP;
@@ -783,6 +790,17 @@ int step(void) {
 				OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SHL, OP_SAR
 			};
 			op_shift_kind = kind_table[reg];
+		}
+		if (op_kind == OP_FPU) {
+			/* FPU系の演算を決定する */
+			if (op_fpu_kind == 3 && reg == 4) {
+				/* FNINIT/FINIT */
+				/* 無視 */
+			} else {
+				fprintf(stderr, "FPU operations are unimplemented at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
 		}
 
 		if (op_width == 1) {
@@ -1492,6 +1510,9 @@ int step(void) {
 		break;
 	case OP_CLEAR_FLAG:
 		eflags &= ~imm_value;
+		break;
+	case OP_FPU:
+		/* 無視(無視しない命令はデコード時に弾いているので) */
 		break;
 	default:
 		fprintf(stderr, "unknown operation kind %d at %08"PRIx32"\n", (int)op_kind, inst_addr);
