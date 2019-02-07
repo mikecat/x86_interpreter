@@ -10,6 +10,8 @@ typedef struct {
 } pe_import_params;
 
 int pe_import_initialize(const pe_import_params* params, uint32_t work_start, uint32_t argc, uint32_t argv);
+
+/* 成功:1 失敗:-1 プログラム終了(成功):0 */
 int pe_import(uint32_t* eip, uint32_t regs[]);
 
 #endif

@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 void initialize_xv6_sbrk(uint32_t initial_addr);
+
+/* 成功:1 失敗:-1 プログラム終了(成功):0 */
 int xv6_syscall(uint32_t regs[]);
 
 #endif

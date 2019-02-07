@@ -179,7 +179,8 @@ int pe_import(uint32_t* eip, uint32_t regs[]) {
 	stack_remove_size = pe_lib_exec(regs, called_lib->name,
 		called_func->is_ord ? NULL : called_func->name,
 		called_func->is_ord ? called_func->hint_or_ord : 0);
-	if (stack_remove_size == PE_LIB_EXEC_FAILED) return 0;
+	if (stack_remove_size == PE_LIB_EXEC_FAILED) return -1;
+	if (stack_remove_size == PE_LIB_EXEC_EXIT) return 0;
 	/* ret */
 	dmemory_read(eip, regs[ESP], 4);
 	regs[ESP] += 4 + stack_remove_size;

@@ -215,7 +215,13 @@ int step(void) {
 
 	if (use_pe_import && import_params.iat_size >= 4 &&
 	import_params.iat_addr <= eip && eip - import_params.iat_addr < import_params.iat_size) {
-		return pe_import(&eip, regs);
+		int ret = pe_import(&eip, regs);
+		if (ret == 0) return 0;
+		if (ret < 0) {
+			print_regs(stderr);
+			return 0;
+		}
+		return 1;
 	}
 
 	/* プリフィックスを解析する */
@@ -1456,7 +1462,12 @@ int step(void) {
 		break;
 	case OP_INT:
 		if (use_xv6_syscall && src_value == 0x40) {
-			if (!xv6_syscall(regs)) return 0;
+			int sysret = xv6_syscall(regs);
+			if (sysret == 0) return 0;
+			else if (sysret < 0) {
+				print_regs(stderr);
+				return 0;
+			}
 		} else {
 			NOT_IMPLEMENTED(OP_INT)
 		}

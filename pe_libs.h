@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define PE_LIB_EXEC_FAILED UINT32_C(0xffffffff)
+#define PE_LIB_EXEC_EXIT UINT32_C(0xfffffffe)
 
 int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv);
 
