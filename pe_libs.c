@@ -11,9 +11,10 @@ static uint32_t argc_value, argv_value;
 
 #define WORK_ARGV0 (work_origin + UINT32_C(0x00000000))
 #define WORK_ARGV1 (work_origin + UINT32_C(0x00000004))
-#define WORK_PNAME (work_origin + UINT32_C(0x00000008))
-#define WORK_FMODE (work_origin + UINT32_C(0x0000000c))
-#define WORK_SIZE UINT32_C(0x00000010)
+#define WORK_ENV0 (work_origin + UINT32_C(0x00000008))
+#define WORK_PNAME (work_origin + UINT32_C(0x0000000c))
+#define WORK_FMODE (work_origin + UINT32_C(0x00000010))
+#define WORK_SIZE UINT32_C(0x00000014)
 
 static int dmem_write_value(uint32_t addr, uint32_t value, int size) {
 	uint8_t buffer[4];
@@ -54,6 +55,7 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	}
 	dmem_write_value(WORK_ARGV0, WORK_PNAME, 4);
 	dmem_write_value(WORK_ARGV1, 0, 4);
+	dmem_write_value(WORK_ENV0, 0, 4);
 	dmemory_write("x\0\0\0", WORK_PNAME, 4);
 	dmem_write_value(WORK_FMODE, 0x00004000, 4); /* O_TEXT */
 	return 1;
@@ -86,11 +88,17 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		fail = !(ok1 && ok2 && ok3);
 		fail = fail || !dmem_write_value(p_argc, argc_value, 4);
 		fail = fail || !dmem_write_value(p_argv, argv_value, 4);
-		fail = fail || !dmem_write_value(p_env, WORK_ARGV1, 4);
+		fail = fail || !dmem_write_value(p_env, WORK_ENV0, 4);
 		regs[EAX] = fail ? -1 : 0;
 		return 0;
 	} else if (strcmp(func_name, "__p__fmode") == 0) {
 		regs[EAX] = WORK_FMODE;
+		return 0;
+	} else if (strcmp(func_name, "atexit") == 0) {
+		regs[EAX] = 1;
+		return 0;
+	} else if (strcmp(func_name, "__p__environ") == 0) {
+		regs[EAX] = WORK_ENV0;
 		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
