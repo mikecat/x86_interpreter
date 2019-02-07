@@ -127,6 +127,12 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		/* バッファをフラッシュ */
 		/* ストリームを閉じる */
 		return 0;
+	} else if (strcmp(func_name, "getenv") == 0) {
+		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "setlocale") == 0) {
+		regs[EAX] = 0;
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
@@ -149,6 +155,19 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 	}
 }
 
+static uint32_t exec_libintl3(uint32_t regs[], const char* func_name) {
+	if (strcmp(func_name, "libintl_bindtextdomain") == 0) {
+		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "libintl_textdomain") == 0) {
+		regs[EAX] = 0;
+		return 0;
+	} else {
+		fprintf(stderr, "unimplemented function %s() in libintl3.dll called.\n", func_name);
+		return PE_LIB_EXEC_FAILED;
+	}
+}
+
 uint32_t pe_lib_exec(uint32_t regs[], const char* lib_name, const char* func_name, uint16_t func_ord) {
 	if (func_name == NULL) {
 		fprintf(stderr, "function #%"PRIu16" in library %s called. (ord value unsupported)\n",
@@ -159,6 +178,8 @@ uint32_t pe_lib_exec(uint32_t regs[], const char* lib_name, const char* func_nam
 		return exec_msvcrt(regs, func_name);
 	} else if (strcmp_ncs(lib_name, "kernel32.dll") == 0) {
 		return exec_kernel32(regs, func_name);
+	} else if (strcmp_ncs(lib_name, "libintl3.dll") == 0) {
+		return exec_libintl3(regs, func_name);
 	} else {
 		fprintf(stderr, "function %s() in unknown library %s called.\n", func_name, lib_name);
 		return PE_LIB_EXEC_FAILED;
