@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "x86_regs.h"
 #include "dynamic_memory.h"
 #include "xv6_syscall.h"
 
@@ -34,8 +35,8 @@ static uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
 }
 
 int xv6_syscall(uint32_t regs[]) {
-	uint32_t esp = regs[4];
-	switch (regs[0]) {
+	uint32_t esp = regs[ESP];
+	switch (regs[EAX]) {
 		case 2: /* exit */
 			return 0;
 		case 5: /* read */
@@ -49,7 +50,7 @@ int xv6_syscall(uint32_t regs[]) {
 				buf = readint(&ok2, esp + 8, 4);
 				n = readint(&ok3, esp + 12, 4);
 				if (!(ok1 && ok2 && ok3)) {
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				/* 入力元の指定(暫定対応) */
@@ -68,43 +69,43 @@ int xv6_syscall(uint32_t regs[]) {
 				read_size = fread(data, 1, n, fp);
 				if (!dmemory_is_allocated(buf, read_size)) {
 					/* 指定された領域が確保されていない */
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				dmemory_write(data, buf, read_size);
 				free(data);
 				/* 成功 */
-				regs[0] = read_size;
+				regs[EAX] = read_size;
 			}
 			break;
 		case 12: /* sbrk */
 			if (!enable_sbrk) {
-				regs[0] = -1;
+				regs[EAX] = -1;
 			} else {
 				uint32_t n;
 				uint32_t new_addr;
 				int ok;
 				n = readint(&ok, esp + 4, 4);
 				if (!ok) {
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				new_addr = sbrk_addr + n;
 				if (n & UINT32_C(0x80000000) ? new_addr > sbrk_addr : new_addr < sbrk_addr) {
 					/* オーバーフロー */
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				if (new_addr < sbrk_origin) {
 					/* 減らしすぎ(本家ではOK?) */
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				if (sbrk_addr < new_addr) {
 					dmemory_allocate(sbrk_addr, new_addr - sbrk_addr);
 				}
 				/* 成功 */
-				regs[0] = sbrk_addr;
+				regs[EAX] = sbrk_addr;
 				sbrk_addr = new_addr;
 			}
 			break;
@@ -118,12 +119,12 @@ int xv6_syscall(uint32_t regs[]) {
 				buf = readint(&ok2, esp + 8, 4);
 				n = readint(&ok3, esp + 12, 4);
 				if (!(ok1 && ok2 && ok3)) {
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				if (!dmemory_is_allocated(buf, n)) {
 					/* 指定された領域が確保されていない */
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				/* 出力先の指定(暫定対応) */
@@ -132,7 +133,7 @@ int xv6_syscall(uint32_t regs[]) {
 				} else if (fd == 2) {
 					fp = stderr;
 				} else {
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				/* データを取得して出力 */
@@ -143,16 +144,16 @@ int xv6_syscall(uint32_t regs[]) {
 				}
 				dmemory_read(data, buf, n);
 				if (fwrite(data, 1, n, fp) != n) {
-					regs[0] = -1;
+					regs[EAX] = -1;
 					break;
 				}
 				free(data);
 				/* 成功 */
-				regs[0] = n;
+				regs[EAX] = n;
 			}
 			break;
 		default: /* 不正もしくは未実装 */
-			regs[0] = -1;
+			regs[EAX] = -1;
 			break;
 	}
 	return 1;

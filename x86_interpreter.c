@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include "x86_regs.h"
 #include "dynamic_memory.h"
 #include "read_raw.h"
 #include "read_elf.h"
@@ -12,23 +13,6 @@ static int use_xv6_syscall = 0;
 static int use_pe_import = 0;
 static pe_import_params import_params;
 
-#define CF 0x0001
-#define PF 0x0004
-#define AF 0x0010
-#define ZF 0x0040
-#define SF 0x0080
-#define IF 0x0200
-#define DF 0x0400
-#define OF 0x0800
-
-#define EAX 0
-#define ECX 1
-#define EDX 2
-#define EBX 3
-#define ESP 4
-#define EBP 5
-#define ESI 6
-#define EDI 7
 uint32_t regs[8];
 uint32_t eip;
 uint32_t eflags;

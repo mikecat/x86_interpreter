@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include "x86_regs.h"
 #include "pe_import.h"
 #include "dynamic_memory.h"
 
@@ -174,7 +175,7 @@ int pe_import(uint32_t* eip, uint32_t regs[], uint32_t addr) {
 		printf(" in library %s is called.\n", called_lib->name);
 	}
 	/* ret */
-	dmemory_read(eip, regs[4], 4);
-	regs[4] += 4;
+	dmemory_read(eip, regs[ESP], 4);
+	regs[ESP] += 4;
 	return 1;
 }
