@@ -176,6 +176,10 @@ int pe_import(uint32_t* eip, uint32_t regs[]) {
 			break;
 		}
 	}
+	if (called_lib == NULL) {
+		fprintf(stderr, "library not found for EIP %08"PRIx32"\n", *eip);
+		return -1;
+	}
 	stack_remove_size = pe_lib_exec(regs, called_lib->name,
 		called_func->is_ord ? NULL : called_func->name,
 		called_func->is_ord ? called_func->hint_or_ord : 0);
