@@ -35,3 +35,8 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 
 * [6.828 / Fall 2018](https://pdos.csail.mit.edu/6.828/2018/xv6.html)
 * [GitHub - mit-pdos/xv6-public: xv6 OS](https://github.com/mit-pdos/xv6-public)
+
+#### PEファイル用ライブラリ
+
+* [fflush(stdout) in c - Stack Overflow](https://stackoverflow.com/questions/4056026/fflushstdout-in-c)
+  * `_iob`と`_flsbuf`の使い方がわかる

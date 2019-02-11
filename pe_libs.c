@@ -156,6 +156,14 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "setlocale") == 0) {
 		regs[EAX] = 0;
 		return 0;
+	} else if (strcmp(func_name, "_flsbuf") == 0) {
+		regs[EAX] = -1; /* putchar失敗 */
+		return 0;
+	} else if (strcmp(func_name, "exit") == 0) {
+		/* atexitで登録した関数を実行 */
+		/* バッファをフラッシュ */
+		/* ストリームを閉じる */
+		return PE_LIB_EXEC_EXIT;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
