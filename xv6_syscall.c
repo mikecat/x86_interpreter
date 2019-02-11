@@ -204,6 +204,31 @@ static int xv6_open(uint32_t regs[]) {
 	return 1;
 }
 
+static int xv6_dup(uint32_t regs[]) {
+	uint32_t fd;
+	int ok;
+	uint32_t i;
+	fd = readint(&ok, regs[ESP] + 4, 4);
+	if (!ok) {
+		regs[EAX] = -1;
+		return 1;
+	}
+	if (FD_MAX <= fd || fds[fd] == NULL) {
+		regs[EAX] = -1;
+		return 1;
+	}
+	for (i = 0; i < FD_MAX; i++) {
+		if (fds[i] == NULL) {
+			fds[i] = fds[fd];
+			fds[fd]->ref_cnt++;
+			regs[EAX] = i;
+			return 1;
+		}
+	}
+	regs[EAX] = -1;
+	return 1;
+}
+
 static int xv6_sbrk(uint32_t regs[]) {
 	uint32_t n;
 	uint32_t new_addr;
@@ -296,6 +321,8 @@ int xv6_syscall(uint32_t regs[]) {
 			return 0;
 		case 5: /* read */
 			return xv6_read(regs);
+		case 10: /* dup */
+			return xv6_dup(regs);
 		case 12: /* sbrk */
 			return xv6_sbrk(regs);
 		case 15: /* open */
