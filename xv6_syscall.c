@@ -4,14 +4,13 @@
 #include "dynamic_memory.h"
 #include "xv6_syscall.h"
 
-static int enable_sbrk = 0;
 static uint32_t sbrk_origin = 0;
 static uint32_t sbrk_addr = 0;
 
-void initialize_xv6_sbrk(uint32_t initial_addr) {
-	enable_sbrk = 1;
-	sbrk_origin = initial_addr;
-	sbrk_addr = initial_addr;
+int initialize_xv6_syscall(uint32_t work_addr) {
+	sbrk_origin = work_addr;
+	sbrk_addr = work_addr;
+	return 1;
 }
 
 static uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
@@ -152,12 +151,7 @@ int xv6_syscall(uint32_t regs[]) {
 		case 5: /* read */
 			return xv6_read(regs);
 		case 12: /* sbrk */
-			if (!enable_sbrk) {
-				regs[EAX] = -1;
-				return 1;
-			} else {
-				return xv6_sbrk(regs);
-			}
+			return xv6_sbrk(regs);
 		case 16: /* write */
 			return xv6_write(regs);
 		default: /* 不正もしくは未実装 */

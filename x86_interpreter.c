@@ -1588,6 +1588,7 @@ int main(int argc, char *argv[]) {
 	uint32_t initial_eip = 0;
 	uint32_t initial_esp = UINT32_C(0xfffff000);
 	uint32_t stack_size = 4096;
+	uint32_t xv6_syscall_work = UINT32_C(0x80000000);
 	uint32_t pe_import_work = UINT32_C(0x80000000);
 	uint32_t argc2 = 0, argv_addr = 0;
 	for (i = 1; i < argc; i++) {
@@ -1629,15 +1630,12 @@ int main(int argc, char *argv[]) {
 			break;
 		} else if (strcmp(argv[i], "--xv6-syscall") == 0) {
 			use_xv6_syscall = 1;
-		} else if (strcmp(argv[i], "--xv6-sbrk") == 0) {
 			if (++i < argc) {
-				uint32_t sbrk_origin = 0;
-				if (!str_to_uint32(&sbrk_origin, argv[i])) {
-					fprintf(stderr, "invalid xv6 sbrk origin %s\n", argv[i]);
+				if (!str_to_uint32(&xv6_syscall_work, argv[i])) {
+					fprintf(stderr, "invalid xv6 system call work buffer origin %s\n", argv[i]);
 					return 1;
 				}
-				initialize_xv6_sbrk(sbrk_origin);
-			} else { fprintf(stderr, "no xv6 sbrk origin for --xv6-sbrk\n"); return 1;}
+			} else { fprintf(stderr, "no work buffer origin for --xv6-syscall\n"); return 1;}
 		} else if (strcmp(argv[i], "--pe-import") == 0) {
 			use_pe_import = 1;
 			if (++i < argc) {
@@ -1708,6 +1706,9 @@ int main(int argc, char *argv[]) {
 	if (import_as_iat) {
 		import_params.iat_addr = import_params.import_addr;
 		import_params.iat_size = import_params.import_size;
+	}
+	if (use_xv6_syscall) {
+		if (!initialize_xv6_syscall(xv6_syscall_work)) return 1;
 	}
 	if (use_pe_import) {
 		if (!pe_import_initialize(&import_params, pe_import_work, argc2, argv_addr)) return 1;
