@@ -256,6 +256,19 @@ int step(void) {
 		}
 	}
 
+#define SET_JMP_TAKE \
+	switch (fetch_data & 0x0E) { \
+	case 0x0: jmp_take = (eflags & OF); break; /* JO */ \
+	case 0x2: jmp_take = (eflags & CF); break; /* JB */ \
+	case 0x4: jmp_take = (eflags & ZF); break; /* JZ */ \
+	case 0x6: jmp_take = (eflags & CF) || (eflags & ZF); break; /* JBE */ \
+	case 0x8: jmp_take = (eflags & SF); break; /* JS */ \
+	case 0xA: jmp_take = (eflags & PF); break; /* JP */ \
+	case 0xC: jmp_take = ((eflags & SF) != 0) != ((eflags & OF) != 0); break; /* JL */ \
+	case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */ \
+	} \
+	if (fetch_data & 0x01) jmp_take = !jmp_take;
+
 	/* オペコードを解析する */
 	if (fetch_data == 0x0F) {
 		fetch_data = step_memread(&memread_ok, inst_addr, eip, 1);
@@ -266,34 +279,14 @@ int step(void) {
 			op_kind = OP_JUMP;
 			op_width = is_data_16bit ? 2 : 4;
 			use_imm = 1;
-			switch (fetch_data & 0x0E) {
-			case 0x0: jmp_take = (eflags & OF); break; /* JO */
-			case 0x2: jmp_take = (eflags & CF); break; /* JB */
-			case 0x4: jmp_take = (eflags & ZF); break; /* JZ */
-			case 0x6: jmp_take = (eflags & CF) || (eflags & ZF); break; /* JBE */
-			case 0x8: jmp_take = (eflags & SF); break; /* JS */
-			case 0xA: jmp_take = (eflags & PF); break; /* JP */
-			case 0xC: jmp_take = ((eflags & SF) != 0) != ((eflags & OF) != 0); break; /* JL */
-			case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
-			}
-			if (fetch_data & 0x01) jmp_take = !jmp_take;
+			SET_JMP_TAKE
 		} else if ((fetch_data & 0xF0) == 0x90) {
 			/* SETcc */
 			op_kind = OP_SETCC;
 			op_width = 1;
 			use_mod_rm = 1;
 			is_dest_reg = 0;
-			switch (fetch_data & 0x0E) {
-			case 0x0: jmp_take = (eflags & OF); break; /* JO */
-			case 0x2: jmp_take = (eflags & CF); break; /* JB */
-			case 0x4: jmp_take = (eflags & ZF); break; /* JZ */
-			case 0x6: jmp_take = (eflags & CF) || (eflags & ZF); break; /* JBE */
-			case 0x8: jmp_take = (eflags & SF); break; /* JS */
-			case 0xA: jmp_take = (eflags & PF); break; /* JP */
-			case 0xC: jmp_take = ((eflags & SF) != 0) != ((eflags & OF) != 0); break; /* JL */
-			case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
-			}
-			if (fetch_data & 0x01) jmp_take = !jmp_take;
+			SET_JMP_TAKE
 		} else if ((fetch_data & 0xFE) == 0xB6) {
 			/* MOVZX */
 			op_kind = OP_MOVZX;
@@ -423,17 +416,7 @@ int step(void) {
 				/* JMP */
 				jmp_take = 1;
 			} else {
-				switch (fetch_data & 0x0E) {
-				case 0x0: jmp_take = (eflags & OF); break; /* JO */
-				case 0x2: jmp_take = (eflags & CF); break; /* JB */
-				case 0x4: jmp_take = (eflags & ZF); break; /* JZ */
-				case 0x6: jmp_take = (eflags & CF) || (eflags & ZF); break; /* JBE */
-				case 0x8: jmp_take = (eflags & SF); break; /* JS */
-				case 0xA: jmp_take = (eflags & PF); break; /* JP */
-				case 0xC: jmp_take = ((eflags & SF) != 0) != ((eflags & OF) != 0); break; /* JL */
-				case 0xE: jmp_take = (eflags & ZF) || (((eflags & SF) != 0) != ((eflags & OF) != 0)); break; /* JLE */
-				}
-				if (fetch_data & 0x01) jmp_take = !jmp_take;
+				SET_JMP_TAKE
 			}
 			op_width = 1;
 			use_imm = 1;
