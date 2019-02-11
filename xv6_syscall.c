@@ -7,9 +7,51 @@
 static uint32_t sbrk_origin = 0;
 static uint32_t sbrk_addr = 0;
 
+typedef struct {
+	FILE* stream;
+	int ref_cnt;
+	int can_read, can_write;
+	enum e_pop {
+		POP_NONE, POP_READ, POP_WRITE, POP_SEEK
+	} prev_operation;
+} stream_info;
+
+#define STREAM_MAX 1024
+#define FD_MAX 1024
+
+static stream_info streams[STREAM_MAX];
+static stream_info* fds[FD_MAX];
+
 int initialize_xv6_syscall(uint32_t work_addr) {
+	int i;
 	sbrk_origin = work_addr;
 	sbrk_addr = work_addr;
+
+	for (i = 0; i < STREAM_MAX; i++) {
+		streams[i].stream = NULL;
+		streams[i].ref_cnt = 0;
+		streams[i].can_read = 0;
+		streams[i].can_write = 0;
+		streams[i].prev_operation = POP_NONE;
+	}
+	for (i = 0; i < FD_MAX; i++) {
+		fds[i] = NULL;
+	}
+	streams[0].stream = stdin;
+	streams[0].ref_cnt = 1;
+	streams[0].can_read = 1;
+	streams[0].can_write = 0;
+	streams[1].stream = stdout;
+	streams[1].ref_cnt = 1;
+	streams[1].can_read = 0;
+	streams[1].can_write = 1;
+	streams[2].stream = stderr;
+	streams[2].ref_cnt = 1;
+	streams[2].can_read = 0;
+	streams[2].can_write = 1;
+	fds[0] = &streams[0];
+	fds[1] = &streams[1];
+	fds[2] = &streams[2];
 	return 1;
 }
 
@@ -36,7 +78,6 @@ static uint32_t readint(int* ok, uint32_t addr, uint32_t size) {
 static int xv6_read(uint32_t regs[]) {
 	uint32_t fd, buf, n;
 	int ok1 = 0, ok2 = 0, ok3 = 0;
-	FILE* fp;
 	uint8_t* data;
 	size_t read_size;
 	fd = readint(&ok1, regs[ESP] + 4, 4);
@@ -46,11 +87,9 @@ static int xv6_read(uint32_t regs[]) {
 		regs[EAX] = -1;
 		return 1;
 	}
-	/* 入力元の指定(暫定対応) */
-	if (fd == 0) {
-		fp = stdin;
-	} else {
-		regs[0] = -1;
+	/* 入力元のチェック */
+	if (FD_MAX <= fd || fds[fd] == NULL || !fds[fd]->can_read) {
+		regs[EAX] = -1;
 		return 1;
 	}
 	/* データを取得 */
@@ -59,7 +98,7 @@ static int xv6_read(uint32_t regs[]) {
 		perror("malloc");
 		return -1;
 	}
-	read_size = fread(data, 1, n, fp);
+	read_size = fread(data, 1, n, fds[fd]->stream);
 	if (!dmemory_is_allocated(buf, read_size)) {
 		/* 指定された領域が確保されていない */
 		regs[EAX] = -1;
@@ -104,7 +143,6 @@ static int xv6_sbrk(uint32_t regs[]) {
 static int xv6_write(uint32_t regs[]) {
 	uint32_t fd, buf, n;
 	int ok1 = 0, ok2 = 0, ok3 = 0;
-	FILE* fp;
 	uint8_t* data;
 	fd = readint(&ok1, regs[ESP] + 4, 4);
 	buf = readint(&ok2, regs[ESP] + 8, 4);
@@ -118,12 +156,8 @@ static int xv6_write(uint32_t regs[]) {
 		regs[EAX] = -1;
 		return 1;
 	}
-	/* 出力先の指定(暫定対応) */
-	if (fd == 1) {
-		fp = stdout;
-	} else if (fd == 2) {
-		fp = stderr;
-	} else {
+	/* 出力先のチェック */
+	if (FD_MAX <= fd || fds[fd] == NULL || !fds[fd]->can_write) {
 		regs[EAX] = -1;
 		return 1;
 	}
@@ -134,7 +168,7 @@ static int xv6_write(uint32_t regs[]) {
 		return -1;
 	}
 	dmemory_read(data, buf, n);
-	if (fwrite(data, 1, n, fp) != n) {
+	if (fwrite(data, 1, n, fds[fd]->stream) != n) {
 		regs[EAX] = -1;
 		return 1;
 	}
