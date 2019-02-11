@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include "x86_regs.h"
 #include "dynamic_memory.h"
 #include "xv6_syscall.h"
@@ -111,6 +112,95 @@ static int xv6_read(uint32_t regs[]) {
 	return 1;
 }
 
+static int xv6_open(uint32_t regs[]) {
+	uint32_t name_ptr, mode;
+	int ok1, ok2;
+	char* name;
+	uint32_t i;
+	stream_info* si;
+	uint32_t fd;
+	int want_read, want_write, want_create;
+	name_ptr = readint(&ok1, regs[ESP] + 4, 4);
+	mode = readint(&ok2, regs[ESP] + 8, 4);
+	if (!(ok1 && ok2)) {
+		regs[EAX] = -1;
+		return 1;
+	}
+
+	/* ファイル名を取得する */
+	name = NULL;
+	i = 0;
+	for (;;) {
+		uint8_t c = 0;
+		char* next_name;
+		if (i == UINT32_MAX || !dmemory_is_allocated(name_ptr + i, 1)) {
+			free(name);
+			regs[EAX] = -1;
+			return 1;
+		}
+		dmemory_read(&c, name_ptr + i, 1);
+		next_name = realloc(name, i + 1);
+		if (next_name == NULL) {
+			perror("realloc");
+			free(name);
+			return -1;
+		}
+		name = next_name;
+		name[i] = c;
+		if (c == 0) break;
+		if (i + name_ptr == UINT32_MAX) {
+			free(name);
+			regs[EAX] = -1;
+			return 1;
+		}
+		i++;
+	}
+
+	/* ファイル情報の書き込み先を確保する */
+	for (fd = 0; fd < FD_MAX; fd++) {
+		if (fds[fd] == NULL) break;
+	}
+	for (si = NULL, i = 0; i < STREAM_MAX; i++) {
+		if (streams[i].stream == NULL) {
+			si = &streams[i];
+			break;
+		}
+	}
+	if (fd >= FD_MAX || si == NULL) {
+		free(name);
+		regs[EAX] = -1;
+		return 1;
+	}
+
+	/* ファイルを開いて情報を登録する */
+	want_read = ((mode & 3) != 1); /* 読み込みを有効化(O_WRONLYでない) */
+	want_write = ((mode & 3) != 0); /* 書き込みを有効化(O_RDONLYでない) */
+	want_create = ((mode & 0x200) != 0); /* 新規作成を有効化(O_CREATEを含む) */
+	/* ファイルの内容を消さずに開くためにrを使う */
+	si->stream = fopen(name, want_write ? "r+" : "r");
+	if (si->stream == NULL && want_create) {
+		/* 開けなかった場合、ファイルが無かったとみなしてwでの作成を試みる */
+		si->stream = fopen(name, want_read ? "w+" : "w");
+	}
+	if (si->stream == NULL) {
+		/* それでも開けなかったらエラー */
+		free(name);
+		regs[EAX] = -1;
+		return 1;
+	}
+	/* ファイルが開けたので、その他の情報を登録する */
+	si->ref_cnt = 1;
+	si->can_read = want_read;
+	si->can_write = want_write;
+	si->prev_operation = POP_NONE;
+	fds[fd] = si;
+
+	/* 成功 */
+	free(name);
+	regs[EAX] = fd;
+	return 1;
+}
+
 static int xv6_sbrk(uint32_t regs[]) {
 	uint32_t n;
 	uint32_t new_addr;
@@ -186,6 +276,8 @@ int xv6_syscall(uint32_t regs[]) {
 			return xv6_read(regs);
 		case 12: /* sbrk */
 			return xv6_sbrk(regs);
+		case 15: /* open */
+			return xv6_open(regs);
 		case 16: /* write */
 			return xv6_write(regs);
 		default: /* 不正もしくは未実装 */
