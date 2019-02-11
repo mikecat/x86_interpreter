@@ -268,6 +268,28 @@ static int xv6_write(uint32_t regs[]) {
 	return 1;
 }
 
+static int xv6_close(uint32_t regs[]) {
+	uint32_t fd;
+	int ok;
+	fd = readint(&ok, regs[ESP] + 4, 4);
+	if (!ok) {
+		regs[EAX] = -1;
+		return 1;
+	}
+	if (FD_MAX <= fd || fds[fd] == NULL) {
+		regs[EAX] = -1;
+		return 1;
+	}
+	fds[fd]->ref_cnt--;
+	if (fds[fd]->ref_cnt <= 0) {
+		fclose(fds[fd]->stream);
+		fds[fd]->stream = NULL;
+	}
+	fds[fd] = NULL;
+	regs[EAX] = 0;
+	return 1;
+}
+
 int xv6_syscall(uint32_t regs[]) {
 	switch (regs[EAX]) {
 		case 2: /* exit */
@@ -280,6 +302,8 @@ int xv6_syscall(uint32_t regs[]) {
 			return xv6_open(regs);
 		case 16: /* write */
 			return xv6_write(regs);
+		case 21:
+			return xv6_close(regs);
 		default: /* 不正もしくは未実装 */
 			regs[EAX] = -1;
 			break;
