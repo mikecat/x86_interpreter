@@ -799,7 +799,7 @@ int step(void) {
 			}
 		}
 
-		if (op_width == 1) {
+		if (op_width == 1 && (op_kind != OP_MOVZX && op_kind != OP_MOVSX)) {
 			if (reg < 4) {
 				reg_index = reg;
 				reg_is_high = 0;
