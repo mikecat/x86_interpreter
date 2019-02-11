@@ -38,16 +38,17 @@ int initialize_xv6_syscall(uint32_t work_addr) {
 	for (i = 0; i < FD_MAX; i++) {
 		fds[i] = NULL;
 	}
+	/* ref_cnt = 1(from interpreter guest) + 1(from interpreter itself) */
 	streams[0].stream = stdin;
-	streams[0].ref_cnt = 1;
+	streams[0].ref_cnt = 1 + 1;
 	streams[0].can_read = 1;
 	streams[0].can_write = 0;
 	streams[1].stream = stdout;
-	streams[1].ref_cnt = 1;
+	streams[1].ref_cnt = 1 + 1;
 	streams[1].can_read = 0;
 	streams[1].can_write = 1;
 	streams[2].stream = stderr;
-	streams[2].ref_cnt = 1;
+	streams[2].ref_cnt = 1 + 1;
 	streams[2].can_read = 0;
 	streams[2].can_write = 1;
 	fds[0] = &streams[0];
