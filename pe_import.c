@@ -59,6 +59,7 @@ static void write_num(uint8_t* out, uint32_t value, int size) {
 
 int pe_import_initialize(const pe_import_params* params, uint32_t work_start, uint32_t argc, uint32_t argv) {
 	uint32_t iat_end = params->iat_addr + (params->iat_size > 0 ? params->iat_size - 1 : 0);
+	if (!pe_libs_initialize(work_start, argc, argv)) return 0;
 	free(imported_libs);
 	imported_libs = NULL;
 	imported_lib_count = 0;
@@ -71,6 +72,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 			uint32_t j;
 			int all_zero = 1;
 			imported_lib_info* new_libs;
+			int lib_id;
 			/* 情報をロードする */
 			if (!dmemory_is_allocated(this_addr, 20)) {
 				fprintf(stderr, "PE import descriptor %"PRIu32" not allocated!\n", i);
@@ -108,6 +110,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 				fprintf(stderr, "name in PE import descriptor %"PRIu32" is invalid!\n", i);
 				return 0;
 			}
+			lib_id = get_lib_id(imported_libs[i].name);
 			/* INT/IATから情報を得る */
 			if (!imported_libs[i].has_int) imported_libs[i].int_addr = imported_libs[i].iat_addr;
 			imported_libs[i].funcs = NULL;
@@ -149,7 +152,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 						new_func->is_ord = 0;
 						new_func->hint_or_ord = read_num(hint, 2);
 					}
-					write_num(entry, imported_libs[i].iat_addr + j * 4, 4);
+					write_num(entry, get_buffer_address(lib_id, new_func->name, imported_libs[i].iat_addr + j * 4), 4);
 					dmemory_write(entry, imported_libs[i].iat_addr + j * 4, 4);
 				}
 				imported_libs[i].func_num = j;
@@ -158,7 +161,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 		}
 		imported_lib_count = i;
 	}
-	return pe_libs_initialize(work_start, argc, argv);
+	return 1;
 }
 
 int pe_import(uint32_t* eip, uint32_t regs[]) {

@@ -8,6 +8,9 @@
 
 int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv);
 
+int get_lib_id(const char* lib_name);
+uint32_t get_buffer_address(int lib_id, const char* identifier, uint32_t default_addr);
+
 /* 帰る時にスタックから消すサイズを返す。実行失敗時は0xffffffffを返す。 */
 /* func_ordはfunc_nameがNULLの時に使用する */
 uint32_t pe_lib_exec(uint32_t regs[], const char* lib_name, const char* func_name, uint16_t func_ord);

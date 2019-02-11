@@ -14,7 +14,13 @@ static uint32_t argc_value, argv_value;
 #define WORK_ENV0 (work_origin + UINT32_C(0x00000008))
 #define WORK_PNAME (work_origin + UINT32_C(0x0000000c))
 #define WORK_FMODE (work_origin + UINT32_C(0x00000010))
-#define WORK_SIZE UINT32_C(0x00000014)
+#define WORK_IOS (work_origin + UINT32_C(0x00001000))
+#define WORK_SIZE UINT32_C(0x00002000)
+
+enum {
+	LIB_ID_UNKNOWN,
+	LIB_ID_MSVCRT
+};
 
 static int dmem_write_value(uint32_t addr, uint32_t value, int size) {
 	uint8_t buffer[4];
@@ -39,6 +45,18 @@ static uint32_t dmem_read_value(int* ok, uint32_t addr, int size) {
 	return res;
 }
 
+/* not case sensitive */
+static int strcmp_ncs(const char* a, const char* b) {
+	for (;;) {
+		int ac = tolower((unsigned char)*a);
+		int bc = tolower((unsigned char)*b);
+		if (ac != bc) return ac > bc ? 1 : -1;
+		if (ac == 0) return 0;
+		a++;
+		b++;
+	}
+}
+
 int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	if (UINT32_MAX - work_start < WORK_SIZE - 1) {
 		fprintf(stderr, "no enough space for PE work\n");
@@ -61,16 +79,21 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	return 1;
 }
 
-/* not case sensitive */
-static int strcmp_ncs(const char* a, const char* b) {
-	for (;;) {
-		int ac = tolower((unsigned char)*a);
-		int bc = tolower((unsigned char)*b);
-		if (ac != bc) return ac > bc ? 1 : -1;
-		if (ac == 0) return 0;
-		a++;
-		b++;
+int get_lib_id(const char* lib_name) {
+	if (strcmp_ncs(lib_name, "msvcrt.dll") == 0) return LIB_ID_MSVCRT;
+	return LIB_ID_UNKNOWN;
+}
+
+uint32_t get_buffer_address(int lib_id, const char* identifier, uint32_t default_addr) {
+	if (identifier == NULL) return default_addr;
+	switch (lib_id) {
+	case LIB_ID_MSVCRT:
+		if (strcmp(identifier, "_iob") == 0) {
+			return WORK_IOS;
+		}
+		break;
 	}
+	return default_addr;
 }
 
 static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
