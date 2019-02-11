@@ -100,7 +100,9 @@ static int xv6_read(uint32_t regs[]) {
 		perror("malloc");
 		return -1;
 	}
+	if (fds[fd]->prev_operation == POP_WRITE) fseek(fds[fd]->stream, 0, SEEK_CUR);
 	read_size = fread(data, 1, n, fds[fd]->stream);
+	fds[fd]->prev_operation = POP_READ;
 	if (!dmemory_is_allocated(buf, read_size)) {
 		/* 指定された領域が確保されていない */
 		regs[EAX] = -1;
@@ -259,13 +261,10 @@ static int xv6_write(uint32_t regs[]) {
 		return -1;
 	}
 	dmemory_read(data, buf, n);
-	if (fwrite(data, 1, n, fds[fd]->stream) != n) {
-		regs[EAX] = -1;
-		return 1;
-	}
+	if (fds[fd]->prev_operation == POP_READ) fseek(fds[fd]->stream, 0, SEEK_CUR);
+	regs[EAX] = fwrite(data, 1, n, fds[fd]->stream) == n ? n : (uint32_t)-1;
+	fds[fd]->prev_operation = POP_WRITE;
 	free(data);
-	/* 成功 */
-	regs[EAX] = n;
 	return 1;
 }
 
