@@ -58,7 +58,7 @@ static int xv6_read(uint32_t regs[]) {
 	data = malloc(n);
 	if (data == NULL) {
 		perror("malloc");
-		return 0;
+		return -1;
 	}
 	read_size = fread(data, 1, n, fp);
 	if (!dmemory_is_allocated(buf, read_size)) {
@@ -132,7 +132,7 @@ static int xv6_write(uint32_t regs[]) {
 	data = malloc(n);
 	if (data == NULL) {
 		perror("malloc");
-		return 0;
+		return -1;
 	}
 	dmemory_read(data, buf, n);
 	if (fwrite(data, 1, n, fp) != n) {
