@@ -196,6 +196,8 @@ int step(void) {
 	int use_imm = 0; /* 即値を使うか */
 	int one_byte_imm = 0; /* 即値が1バイトか(偽 = オペランドのサイズ) */
 	int op_fpu_kind = 0; /* FPU系命令のカテゴリ */
+	int imul_store_upper = 0; /* IMUL命令において、上位の値を保存するか */
+	int imul_enable_dest = 0; /* IMUL命令において、destの指定を有効にするか(偽 = AL/AX/EAX固定) */
 
 	/* オペランドの情報 */
 	enum {
@@ -287,6 +289,13 @@ int step(void) {
 			use_mod_rm = 1;
 			is_dest_reg = 0;
 			SET_JMP_TAKE
+		} else if (fetch_data == 0xAF) {
+			/* IMUL r16/32, r/m16/32 */
+			op_kind = OP_IMUL;
+			op_width = (is_data_16bit ? 2 : 4);
+			use_mod_rm = 1;
+			is_dest_reg = 1;
+			imul_enable_dest = 1;
 		} else if ((fetch_data & 0xFE) == 0xB6) {
 			/* MOVZX */
 			op_kind = OP_MOVZX;
@@ -394,6 +403,14 @@ int step(void) {
 			op_width = (is_data_16bit ? 2 : 4);
 			use_imm = 1;
 			src_kind = OP_KIND_IMM;
+		} else if (fetch_data == 0x69) {
+			/* IMUL r16/32, r/m16/32, imm16/32 */
+			op_kind = OP_IMUL;
+			op_width = (is_data_16bit ? 2 : 4);
+			use_mod_rm = 1;
+			is_dest_reg = 1;
+			use_imm = 1;
+			imul_enable_dest = 1;
 		} else if (fetch_data == 0x6A) {
 			/* PUSH imm8 */
 			op_kind = OP_PUSH;
@@ -401,6 +418,15 @@ int step(void) {
 			use_imm = 1;
 			one_byte_imm = 1;
 			src_kind = OP_KIND_IMM;
+		} else if (fetch_data == 0x6B) {
+			/* IMUL r16/32, r/m16/32, imm8 */
+			op_kind = OP_IMUL;
+			op_width = (is_data_16bit ? 2 : 4);
+			use_mod_rm = 1;
+			is_dest_reg = 1;
+			use_imm = 1;
+			one_byte_imm = 1;
+			imul_enable_dest = 1;
 		} else if ((fetch_data & 0xFC) == 0x6C) {
 			/* INS/OUTS */
 			op_kind = OP_STRING;
@@ -755,6 +781,7 @@ int step(void) {
 			}
 			if (reg <= 3) need_dest_value = 1;
 			if (4 <= reg) is_dest_reg = 1;
+			if (reg == 4 || reg == 5) imul_store_upper = 1;
 		} else if (op_arithmetic_kind == OP_READ_MODRM_INC) {
 			/* 「mod r/mを見て決定する」INC系の演算を決定する */
 			static const int op_table[] = {
@@ -942,8 +969,13 @@ int step(void) {
 		}
 		/* destの決定 */
 		if (is_dest_reg) {
-			dest_kind = reg_kind;
-			dest_reg_index = reg_index;
+			if (op_kind == OP_IMUL && !imul_enable_dest) {
+				dest_kind = OP_KIND_REG;
+				dest_reg_index = EAX;
+			} else {
+				dest_kind = reg_kind;
+				dest_reg_index = reg_index;
+			}
 		} else {
 			dest_kind = modrm_kind;
 			dest_reg_index = modrm_reg_index;
@@ -1250,7 +1282,29 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_MUL)
 		break;
 	case OP_IMUL:
-		NOT_IMPLEMENTED(OP_IMUL)
+		{
+			uint32_t mask = op_width == 4 ? UINT32_C(0xffffffff) : UINT32_C(0xffffffff) >> (8 * (4 - op_width));
+			uint32_t sign_mask = UINT32_C(1) << (8 * op_width - 1);
+			uint64_t s = src_value;
+			uint64_t d = (use_imm ? imm_value : dest_value);
+			uint32_t upper;
+			if (s & sign_mask) s |= UINT64_C(0xffffffff00000000);
+			if (d & sign_mask) d |= UINT64_C(0xffffffff00000000);
+			d *= s;
+			upper = (uint32_t)(d >> (8 * op_width));
+			result = (uint32_t)d;
+			result_write = 1;
+			if (imul_store_upper) {
+				if (op_width == 1) regs[EAX] = (regs[EAX] & UINT32_C(0xffff00ff)) | ((upper & 0xff) << 8);
+				else if (op_width == 2) regs[EDX] = (regs[EDX] & UINT32_C(0xffff0000)) | (upper & 0xffff);
+				else regs[EDX] = upper;
+			}
+			if ((upper & mask) == ((result & sign_mask) ? mask : 0)) {
+				eflags |= (OF | CF);
+			} else {
+				eflags &= ~(OF | CF);
+			}
+		}
 		break;
 	case OP_DIV:
 		{
