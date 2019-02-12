@@ -5,6 +5,7 @@
 #include "pe_import.h"
 #include "pe_libs.h"
 #include "dynamic_memory.h"
+#include "dmem_utils.h"
 
 typedef struct {
 	int is_ord;
@@ -29,24 +30,6 @@ static uint32_t read_num(const uint8_t* data, int size) {
 	for (i = 0; i < size; i++) {
 		ret |= data[i] << (i * 8);
 	}
-	return ret;
-}
-
-static char* read_string_dmem(uint32_t addr) {
-	uint32_t size = 0;
-	uint8_t test_value;
-	char* ret;
-	/* 文字列の範囲を調べる(終端のNULを含む) */
-	do {
-		if (!dmemory_is_allocated(addr + size, 1)) return NULL;
-		dmemory_read(&test_value, addr + size, 1);
-		if (size == UINT32_MAX) return NULL;
-		size++;
-	} while (test_value != 0);
-	/* 調べた範囲を読み込む */
-	ret = malloc(size);
-	if (ret == NULL) return NULL;
-	dmemory_read(ret, addr, size);
 	return ret;
 }
 

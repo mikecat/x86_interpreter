@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 #include "dynamic_memory.h"
+#include "dmem_utils.h"
 #include "x86_regs.h"
 #include "pe_libs.h"
 
@@ -21,29 +22,6 @@ enum {
 	LIB_ID_UNKNOWN,
 	LIB_ID_MSVCRT
 };
-
-static int dmem_write_value(uint32_t addr, uint32_t value, int size) {
-	uint8_t buffer[4];
-	int i;
-	if (size < 0 || 4 < size) return 0;
-	if (!dmemory_is_allocated(addr, size)) return 0;
-	for (i = 0; i < size; i++) buffer[i] = (value >> (8 * i)) & 0xff;
-	dmemory_write(buffer, addr, size);
-	return 1;
-}
-
-static uint32_t dmem_read_value(int* ok, uint32_t addr, int size) {
-	uint8_t buffer[4];
-	uint32_t res = 0;
-	int i;
-	if (ok != NULL) *ok = 0;
-	if (size < 0 || 4 < size) return 0;
-	if (!dmemory_is_allocated(addr, size)) return 0;
-	dmemory_read(buffer, addr ,size);
-	for (i = 0; i < size; i++) res |= buffer[i] << (8 * i);
-	if (ok != NULL) *ok = 1;
-	return res;
-}
 
 /* not case sensitive */
 static int strcmp_ncs(const char* a, const char* b) {
