@@ -8,6 +8,32 @@ int dmem_libc_string_initialize(void) {
 	return 1;
 }
 
+int dmem_libc_strcmp(uint32_t* ret, uint32_t esp) {
+	uint32_t sptr1, sptr2;
+	uint32_t i;
+	if (!dmem_get_args(esp, 2, &sptr1, &sptr2)) return 0;
+
+	for (i = 0; ; i++) {
+		uint32_t c1, c2;
+		int ok1, ok2;
+		if (UINT32_MAX - sptr1 < i || UINT32_MAX - sptr2 < i) return 0;
+		c1 = dmem_read_uint(&ok1, sptr1 + i, 1);
+		c2 = dmem_read_uint(&ok2, sptr2 + i, 1);
+		if (!(ok1 && ok2)) return 0;
+		if (c1 > c2) {
+			*ret = 1;
+			return 1;
+		} else if (c1 < c2) {
+			*ret = -1;
+			return 1;
+		} else if (c1 == 0) { /* c1 == c2 */
+			*ret = 0;
+			return 1;
+		}
+		if (i == UINT32_MAX) return 0;
+	}
+}
+
 int dmem_libc_strncmp(uint32_t* ret, uint32_t esp) {
 	uint32_t sptr1, sptr2, n;
 	uint32_t i;
