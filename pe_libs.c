@@ -19,6 +19,7 @@ static uint32_t argc_value, argv_value;
 #define WORK_FMODE (work_origin + UINT32_C(0x00000010))
 #define WORK_ERRNO (work_origin + UINT32_C(0x00000014))
 #define WORK_IOB (work_origin + UINT32_C(0x00001000))
+#define WORK_HEAP_START (work_origin + UINT32_C(0x00002000))
 #define WORK_SIZE UINT32_C(0x00002000)
 
 enum {
@@ -60,6 +61,7 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	dmem_write_uint(WORK_ERRNO, 0, 4);
 
 	if (!dmem_libc_stdio_initialize(WORK_IOB)) return 0;
+	if (!dmem_libc_stdlib_initialize(WORK_HEAP_START)) return 0;
 	if (!dmem_libc_string_initialize()) return 0;
 	return 1;
 }
@@ -167,6 +169,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		CALL_DMEM_LIBC(fflush)
 	} else if (strcmp(func_name, "strcmp") == 0) {
 		CALL_DMEM_LIBC(strcmp)
+	} else if (strcmp(func_name, "malloc") == 0) {
+		CALL_DMEM_LIBC(malloc)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
