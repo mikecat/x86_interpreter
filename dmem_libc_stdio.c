@@ -16,6 +16,7 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 	char* format, *itr;
 	char* result = NULL;
 	uint32_t result_len = 0;
+	uint32_t data_addr = data_prev_ptr;
 	*ret = NULL;
 	format = dmem_read_string(format_ptr);
 	if (format == NULL) return 0;
@@ -33,9 +34,40 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 	for (;;) {
 		char* next_result;
 		if (*itr == '%') {
-			REALLOC_RESULT(1)
-			result[result_len++] = '%';
-			itr++;
+			char* itr2 = itr + 1;
+			if (UINT32_MAX - 4 < data_addr) {
+				free(format);
+				free(result);
+				return 0;
+			}
+			data_addr += 4;
+			/* フラグ */
+			/* 確保する長さ */
+			/* 精度 */
+			/* データサイズ */
+			/* 変換指定 */
+			if (*itr2 == 's') {
+				uint32_t str_ptr;
+				int ok = 0;
+				char* str;
+				size_t str_len;
+				str_ptr = dmem_read_uint(&ok, data_addr, 4);
+				if (!ok) { free(format); free(result); return 0; }
+				str = dmem_read_string(str_ptr);
+				if (str == NULL) { free(format); free(result); return 0; }
+				str_len = strlen(str);
+				if (str_len > UINT32_MAX) { free(str); free(format); free(result); return 0; }
+				REALLOC_RESULT(str_len)
+				memcpy(&result[result_len], str, str_len);
+				result_len += str_len;
+				free(str);
+			} else {
+				REALLOC_RESULT(itr2 - itr + 1)
+				memcpy(&result[result_len], itr, itr2 - itr + 1);
+				result_len += itr2 - itr + 1;
+				if (*itr2 == '\0') break;
+			}
+			itr = itr2 + 1;
 		} else {
 			char* itr2 = itr;
 			while (*itr2 != '%' && *itr2 != '\0') itr2++;
@@ -159,7 +191,7 @@ int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp) {
 		*ret = -1;
 		return 1;
 	}
-	result_len = printf_core(&result, format_ptr, vargs);
+	result_len = printf_core(&result, format_ptr, vargs - 4);
 	if (result == NULL) {
 		return 0;
 	} else {
