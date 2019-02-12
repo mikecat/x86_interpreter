@@ -157,7 +157,24 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		regs[EAX] = 0;
 		return 0;
 	} else if (strcmp(func_name, "_flsbuf") == 0) {
-		regs[EAX] = -1; /* putchar失敗 */
+		uint32_t chr, fp;
+		int ok1, ok2;
+		chr = dmem_read_value(&ok1, regs[ESP] + 4, 4);
+		fp = dmem_read_value(&ok2, regs[ESP] + 8, 4);
+		if (!(ok1 && ok2)) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		/* TODO: バッファの処理? */
+		if (fp == WORK_IOB + 32 * 1) {
+			fputc(chr, stdout);
+			regs[EAX] = chr;
+		} else if (fp == WORK_IOB + 32 * 2) {
+			fputc(chr, stderr);
+			regs[EAX] = chr;
+		} else {
+			regs[EAX] = -1; /* putchar失敗 */
+		}
 		return 0;
 	} else if (strcmp(func_name, "exit") == 0) {
 		/* atexitで登録した関数を実行 */
