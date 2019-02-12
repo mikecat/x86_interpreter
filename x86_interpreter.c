@@ -1274,6 +1274,7 @@ int step(void) {
 			(result & sign_mask) != (dest_value & sign_mask)) next_eflags |= OF;
 			if (result & sign_mask) next_eflags |= SF;
 			if ((result & ((UINT64_C(1) << (op_width * 8)) - 1)) == 0) next_eflags |= ZF;
+			eflags = next_eflags;
 		}
 		break;
 	case OP_NOT:
