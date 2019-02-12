@@ -63,9 +63,9 @@ static int xv6_read(uint32_t regs[]) {
 	int ok1 = 0, ok2 = 0, ok3 = 0;
 	uint8_t* data;
 	size_t read_size;
-	fd = dmem_read_value(&ok1, regs[ESP] + 4, 4);
-	buf = dmem_read_value(&ok2, regs[ESP] + 8, 4);
-	n = dmem_read_value(&ok3, regs[ESP] + 12, 4);
+	fd = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+	buf = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
+	n = dmem_read_uint(&ok3, regs[ESP] + 12, 4);
 	if (!(ok1 && ok2 && ok3)) {
 		regs[EAX] = -1;
 		return 1;
@@ -104,8 +104,8 @@ static int xv6_open(uint32_t regs[]) {
 	stream_info* si;
 	uint32_t fd;
 	int want_read, want_write, want_create;
-	name_ptr = dmem_read_value(&ok1, regs[ESP] + 4, 4);
-	mode = dmem_read_value(&ok2, regs[ESP] + 8, 4);
+	name_ptr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+	mode = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
 	if (!(ok1 && ok2)) {
 		regs[EAX] = -1;
 		return 1;
@@ -189,7 +189,7 @@ static int xv6_dup(uint32_t regs[]) {
 	uint32_t fd;
 	int ok;
 	uint32_t i;
-	fd = dmem_read_value(&ok, regs[ESP] + 4, 4);
+	fd = dmem_read_uint(&ok, regs[ESP] + 4, 4);
 	if (!ok) {
 		regs[EAX] = -1;
 		return 1;
@@ -214,7 +214,7 @@ static int xv6_sbrk(uint32_t regs[]) {
 	uint32_t n;
 	uint32_t new_addr;
 	int ok;
-	n = dmem_read_value(&ok, regs[ESP] + 4, 4);
+	n = dmem_read_uint(&ok, regs[ESP] + 4, 4);
 	if (!ok) {
 		regs[EAX] = -1;
 		return 1;
@@ -243,9 +243,9 @@ static int xv6_write(uint32_t regs[]) {
 	uint32_t fd, buf, n;
 	int ok1 = 0, ok2 = 0, ok3 = 0;
 	uint8_t* data;
-	fd = dmem_read_value(&ok1, regs[ESP] + 4, 4);
-	buf = dmem_read_value(&ok2, regs[ESP] + 8, 4);
-	n = dmem_read_value(&ok3, regs[ESP] + 12, 4);
+	fd = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+	buf = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
+	n = dmem_read_uint(&ok3, regs[ESP] + 12, 4);
 	if (!(ok1 && ok2 && ok3)) {
 		regs[EAX] = -1;
 		return 1;
@@ -277,7 +277,7 @@ static int xv6_write(uint32_t regs[]) {
 static int xv6_close(uint32_t regs[]) {
 	uint32_t fd;
 	int ok;
-	fd = dmem_read_value(&ok, regs[ESP] + 4, 4);
+	fd = dmem_read_uint(&ok, regs[ESP] + 4, 4);
 	if (!ok) {
 		regs[EAX] = -1;
 		return 1;

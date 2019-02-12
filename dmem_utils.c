@@ -2,7 +2,7 @@
 #include "dmem_utils.h"
 #include "dynamic_memory.h"
 
-int dmem_write_value(uint32_t addr, uint32_t value, int size) {
+int dmem_write_uint(uint32_t addr, uint32_t value, int size) {
 	uint8_t buffer[4];
 	int i;
 	if (size < 0 || 4 < size) return 0;
@@ -12,7 +12,7 @@ int dmem_write_value(uint32_t addr, uint32_t value, int size) {
 	return 1;
 }
 
-uint32_t dmem_read_value(int* ok, uint32_t addr, int size) {
+uint32_t dmem_read_uint(int* ok, uint32_t addr, int size) {
 	uint8_t buffer[4];
 	uint32_t res = 0;
 	int i;
@@ -25,7 +25,7 @@ uint32_t dmem_read_value(int* ok, uint32_t addr, int size) {
 	return res;
 }
 
-char* read_string_dmem(uint32_t addr) {
+char* dmem_read_string(uint32_t addr) {
 	uint32_t size = 0;
 	uint8_t test_value;
 	char* ret;

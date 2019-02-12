@@ -88,7 +88,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 			imported_libs[i].iat_size = 0;
 			name_ptr += params->image_base;
 			/* インポート対象の名前情報を得る */
-			imported_libs[i].name = read_string_dmem(name_ptr);
+			imported_libs[i].name = dmem_read_string(name_ptr);
 			if (imported_libs[i].name == NULL) {
 				fprintf(stderr, "name in PE import descriptor %"PRIu32" is invalid!\n", i);
 				return 0;
@@ -127,7 +127,7 @@ int pe_import_initialize(const pe_import_params* params, uint32_t work_start, ui
 						uint8_t hint[2];
 						if (UINT32_MAX - params->image_base < entry_value + 2 ||
 						!dmemory_is_allocated(params->image_base + entry_value, 2) ||
-						(new_func->name = read_string_dmem(params->image_base + entry_value + 2)) == NULL) {
+						(new_func->name = dmem_read_string(params->image_base + entry_value + 2)) == NULL) {
 							fprintf(stderr, "invalid entry exists in INT/IAT of PE import descriptor %"PRIu32"\n", i);
 							return 0;
 						}

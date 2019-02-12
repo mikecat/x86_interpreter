@@ -49,11 +49,11 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 		argc_value = argc;
 		argv_value = argv;
 	}
-	dmem_write_value(WORK_ARGV0, WORK_PNAME, 4);
-	dmem_write_value(WORK_ARGV1, 0, 4);
-	dmem_write_value(WORK_ENV0, 0, 4);
+	dmem_write_uint(WORK_ARGV0, WORK_PNAME, 4);
+	dmem_write_uint(WORK_ARGV1, 0, 4);
+	dmem_write_uint(WORK_ENV0, 0, 4);
 	dmemory_write("x\0\0\0", WORK_PNAME, 4);
-	dmem_write_value(WORK_FMODE, 0x00004000, 4); /* O_TEXT */
+	dmem_write_uint(WORK_FMODE, 0x00004000, 4); /* O_TEXT */
 	return 1;
 }
 
@@ -83,13 +83,13 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		uint32_t p_argc, p_argv, p_env;
 		int ok1 = 0, ok2 = 0, ok3 = 0;
 		int fail = 0;
-		p_argc = dmem_read_value(&ok1, esp + 4, 4);
-		p_argv = dmem_read_value(&ok2, esp + 8, 4);
-		p_env = dmem_read_value(&ok3, esp + 12, 4);
+		p_argc = dmem_read_uint(&ok1, esp + 4, 4);
+		p_argv = dmem_read_uint(&ok2, esp + 8, 4);
+		p_env = dmem_read_uint(&ok3, esp + 12, 4);
 		fail = !(ok1 && ok2 && ok3);
-		fail = fail || !dmem_write_value(p_argc, argc_value, 4);
-		fail = fail || !dmem_write_value(p_argv, argv_value, 4);
-		fail = fail || !dmem_write_value(p_env, WORK_ENV0, 4);
+		fail = fail || !dmem_write_uint(p_argc, argc_value, 4);
+		fail = fail || !dmem_write_uint(p_argv, argv_value, 4);
+		fail = fail || !dmem_write_uint(p_env, WORK_ENV0, 4);
 		regs[EAX] = fail ? -1 : 0;
 		return 0;
 	} else if (strcmp(func_name, "__p__fmode") == 0) {
@@ -105,13 +105,13 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		uint32_t ptr;
 		uint32_t chr;
 		int ok;
-		ptr = dmem_read_value(&ok, regs[ESP] + 4, 4);
+		ptr = dmem_read_uint(&ok, regs[ESP] + 4, 4);
 		if (!ok) {
 			regs[EAX] = -1;
 			return 0;
 		}
 		for (;;) {
-			chr = dmem_read_value(&ok, ptr, 1);
+			chr = dmem_read_uint(&ok, ptr, 1);
 			if (!ok) {
 				regs[EAX] = -1;
 				return 0;
@@ -137,8 +137,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "_flsbuf") == 0) {
 		uint32_t chr, fp;
 		int ok1, ok2;
-		chr = dmem_read_value(&ok1, regs[ESP] + 4, 4);
-		fp = dmem_read_value(&ok2, regs[ESP] + 8, 4);
+		chr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+		fp = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
 		if (!(ok1 && ok2)) {
 			regs[EAX] = -1;
 			return 0;

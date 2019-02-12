@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-int dmem_write_value(uint32_t addr, uint32_t value, int size);
-uint32_t dmem_read_value(int* ok, uint32_t addr, int size);
-char* read_string_dmem(uint32_t addr);
+int dmem_write_uint(uint32_t addr, uint32_t value, int size);
+uint32_t dmem_read_uint(int* ok, uint32_t addr, int size);
+char* dmem_read_string(uint32_t addr);
 
 #endif
