@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <inttypes.h>
@@ -103,25 +104,21 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "puts") == 0) {
 		uint32_t ptr;
-		uint32_t chr;
 		int ok;
+		char* str;
 		ptr = dmem_read_uint(&ok, regs[ESP] + 4, 4);
 		if (!ok) {
 			regs[EAX] = -1;
 			return 0;
 		}
-		for (;;) {
-			chr = dmem_read_uint(&ok, ptr, 1);
-			if (!ok) {
-				regs[EAX] = -1;
-				return 0;
-			}
-			if (chr == 0) break;
-			putchar(chr);
-			ptr++;
+		str = dmem_read_string(ptr);
+		if (str == NULL) {
+			regs[EAX] = -1;
+		} else {
+			puts(str);
+			free(str);
+			regs[EAX] = 1;
 		}
-		putchar('\n');
-		regs[EAX] = 1;
 		return 0;
 	} else if (strcmp(func_name, "_cexit") == 0) {
 		/* atexitで登録した関数を実行 */
