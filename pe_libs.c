@@ -171,6 +171,12 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		CALL_DMEM_LIBC(strcmp)
 	} else if (strcmp(func_name, "malloc") == 0) {
 		CALL_DMEM_LIBC(malloc)
+	} else if (strcmp(func_name, "_isatty") == 0) {
+		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "_setmode") == 0) {
+		regs[EAX] = -1;
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
