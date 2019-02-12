@@ -40,3 +40,5 @@ x86(80386)の命令(のサブセット)のインタプリタです。
 
 * [fflush(stdout) in c - Stack Overflow](https://stackoverflow.com/questions/4056026/fflushstdout-in-c)
   * `_iob`と`_flsbuf`の使い方がわかる
+* [gettext - man pages section 3: Basic Library Functions](https://docs.oracle.com/cd/E36784_01/html/E36874/gettext-3c.html)
+  * `libintl3.dll`系の関数の使い方がわかる

@@ -286,6 +286,16 @@ static uint32_t exec_libintl3(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "libintl_textdomain") == 0) {
 		regs[EAX] = 0;
 		return 0;
+	} else if (strcmp(func_name, "libintl_gettext") == 0) {
+		uint32_t msgid;
+		int ok;
+		msgid = dmem_read_uint(&ok, regs[ESP] + 4, 4);
+		if (!ok) {
+			regs[EAX] = 0;
+		} else {
+			regs[EAX] = msgid;
+		}
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in libintl3.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
