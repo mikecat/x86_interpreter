@@ -8,6 +8,22 @@ int dmem_libc_string_initialize(void) {
 	return 1;
 }
 
+int dmem_libc_strcpy(uint32_t* ret, uint32_t esp) {
+	uint32_t dest, src;
+	char* str;
+	size_t str_len;
+	if (!dmem_get_args(esp, 2, &dest, &src)) return 0;
+
+	str = dmem_read_string(src);
+	if (str == NULL) return 0;
+	str_len = strlen(str);
+	if (UINT32_MAX - 1 < str_len) return 0;
+	if (!dmemory_is_allocated(dest, (uint32_t)str_len + 1)) return 0;
+	dmemory_write(str, dest, (uint32_t)str_len + 1);
+	*ret = dest;
+	return 1;
+}
+
 int dmem_libc_strcmp(uint32_t* ret, uint32_t esp) {
 	uint32_t sptr1, sptr2;
 	uint32_t i;

@@ -5,6 +5,7 @@
 
 int dmem_libc_string_initialize(void);
 
+int dmem_libc_strcpy(uint32_t* ret, uint32_t esp);
 int dmem_libc_strncmp(uint32_t* ret, uint32_t esp);
 int dmem_libc_strcmp(uint32_t* ret, uint32_t esp);
 int dmem_libc_strchr(uint32_t* ret, uint32_t esp);
