@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include "dynamic_memory.h"
 #include "dmem_utils.h"
+#include "dmem_libc.h"
 #include "x86_regs.h"
 #include "pe_libs.h"
 
@@ -55,6 +56,9 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	dmem_write_uint(WORK_ENV0, 0, 4);
 	dmemory_write("x\0\0\0", WORK_PNAME, 4);
 	dmem_write_uint(WORK_FMODE, 0x00004000, 4); /* O_TEXT */
+
+	if (!dmem_libc_stdio_initialize(WORK_IOB)) return 0;
+	if (!dmem_libc_string_initialize()) return 0;
 	return 1;
 }
 
@@ -76,6 +80,14 @@ uint32_t get_buffer_address(int lib_id, const char* identifier, uint32_t default
 }
 
 static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
+#define CALL_DMEM_LIBC(name) \
+	if (dmem_libc_ ## name (&regs[EAX], regs[ESP])) { \
+		return 0; \
+	} else { \
+		fprintf(stderr, "failure in executing " #name "() in msvcrt.dll\n"); \
+		return PE_LIB_EXEC_FAILED; \
+	}
+
 	if (strcmp(func_name, "__set_app_type") == 0) {
 		/* 無視 */
 		return 0;
@@ -98,21 +110,7 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		regs[EAX] = WORK_ENV0;
 		return 0;
 	} else if (strcmp(func_name, "puts") == 0) {
-		uint32_t ptr;
-		char* str;
-		if (!dmem_get_args(regs[ESP], 1, &ptr)) {
-			regs[EAX] = -1;
-			return 0;
-		}
-		str = dmem_read_string(ptr);
-		if (str == NULL) {
-			regs[EAX] = -1;
-		} else {
-			puts(str);
-			free(str);
-			regs[EAX] = 1;
-		}
-		return 0;
+		CALL_DMEM_LIBC(puts)
 	} else if (strcmp(func_name, "_cexit") == 0) {
 		/* atexitで登録した関数を実行 */
 		/* バッファをフラッシュ */
@@ -147,96 +145,13 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		/* ストリームを閉じる */
 		return PE_LIB_EXEC_EXIT;
 	} else if (strcmp(func_name, "fputs") == 0) {
-		uint32_t str_ptr, fp;
-		char* str;
-		if (!dmem_get_args(regs[ESP], 2, &str_ptr, &fp)) {
-			regs[EAX] = -1;
-			return 0;
-		}
-		str = dmem_read_string(str_ptr);
-		if (str == NULL) {
-			regs[EAX] = -1;
-			return 0;
-		}
-		if (fp == WORK_IOB + 32 * 1) {
-			fputs(str, stdout);
-			regs[EAX] = 1;
-		} else if (fp == WORK_IOB + 32 * 2) {
-			fputs(str, stderr);
-			regs[EAX] = 1;
-		} else {
-			regs[EAX] = -1;
-		}
-		free(str);
-		return 0;
+		CALL_DMEM_LIBC(fputs)
 	} else if (strcmp(func_name, "strchr") == 0) {
-		uint32_t str_ptr, target;
-		char* str;
-		char* res;
-		if (!dmem_get_args(regs[ESP], 2, &str_ptr, &target)) {
-			regs[EAX] = -1;
-			return 0;
-		}
-		str = dmem_read_string(str_ptr);
-		if (str == NULL) {
-			regs[EAX] = 0;
-			return 0;
-		}
-		res = strchr(str, target);
-		if (res == NULL) {
-			regs[EAX] = 0;
-		} else {
-			regs[EAX] = str_ptr + (res - str);
-		}
-		free(str);
-		return 0;
+		CALL_DMEM_LIBC(strchr)
 	} else if (strcmp(func_name, "strncmp") == 0) {
-		uint32_t sptr1, sptr2, n;
-		uint32_t i;
-		if (!dmem_get_args(regs[ESP], 3, &sptr1, &sptr2, &n)) {
-			regs[EAX] = -1;
-			return 0;
-		}
-		for (i = 0; i < n; i++) {
-			uint32_t c1, c2;
-			int ok1, ok2;
-			if (UINT32_MAX - sptr1 < i || UINT32_MAX - sptr2 < i) {
-				break;
-			}
-			c1 = dmem_read_uint(&ok1, sptr1 + i, 1);
-			c2 = dmem_read_uint(&ok2, sptr2 + i, 1);
-			if (!(ok1 && ok2)) {
-				break;
-			}
-			if (c1 > c2) {
-				regs[EAX] = 1;
-				return 0;
-			} else if (c1 < c2) {
-				regs[EAX] = -1;
-				return 0;
-			} else if (c1 == 0) { /* c1 == c2 */
-				break;
-			}
-		}
-		regs[EAX] = 0;
-		return 0;
+		CALL_DMEM_LIBC(strncmp)
 	} else if (strcmp(func_name, "strlen") == 0) {
-		uint32_t str_ptr;
-		uint32_t i;
-		if (!dmem_get_args(regs[ESP], 1, &str_ptr)) {
-			regs[EAX] = 0;
-			return 0;
-		}
-		i = 0;
-		for (;;) {
-			int ok;
-			uint32_t c = dmem_read_uint(&ok, str_ptr + i, 1);
-			if (!ok || c == 0 || (i == UINT32_MAX || UINT32_MAX - i - 1 < str_ptr)) {
-				regs[EAX] = i;
-				return 0;
-			}
-			i++;
-		}
+		CALL_DMEM_LIBC(strlen)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
