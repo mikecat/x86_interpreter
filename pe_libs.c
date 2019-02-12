@@ -206,6 +206,57 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		}
 		free(str);
 		return 0;
+	} else if (strcmp(func_name, "strncmp") == 0) {
+		uint32_t sptr1, sptr2, n;
+		int ok1, ok2, ok3;
+		uint32_t i;
+		sptr1 = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+		sptr2 = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
+		n = dmem_read_uint(&ok3, regs[ESP] + 12, 4);
+		if (!(ok1 && ok2 && ok3)) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		for (i = 0; i < n; i++) {
+			uint32_t c1, c2;
+			if (UINT32_MAX - sptr1 < i || UINT32_MAX - sptr2 < i) {
+				break;
+			}
+			c1 = dmem_read_uint(&ok1, sptr1 + i, 1);
+			c2 = dmem_read_uint(&ok2, sptr2 + i, 1);
+			if (!(ok1 && ok2)) {
+				break;
+			}
+			if (c1 > c2) {
+				regs[EAX] = 1;
+				return 0;
+			} else if (c1 < c2) {
+				regs[EAX] = -1;
+				return 0;
+			} else if (c1 == 0) { /* c1 == c2 */
+				break;
+			}
+		}
+		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "strlen") == 0) {
+		uint32_t str_ptr;
+		int ok;
+		uint32_t i;
+		str_ptr = dmem_read_uint(&ok, regs[ESP] + 4, 4);
+		if (!ok) {
+			regs[EAX] = 0;
+			return 0;
+		}
+		i = 0;
+		for (;;) {
+			uint32_t c = dmem_read_uint(&ok, str_ptr + i, 1);
+			if (!ok || c == 0 || (i == UINT32_MAX || UINT32_MAX - i - 1 < str_ptr)) {
+				regs[EAX] = i;
+				return 0;
+			}
+			i++;
+		}
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
