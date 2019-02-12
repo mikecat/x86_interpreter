@@ -182,6 +182,30 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		}
 		free(str);
 		return 0;
+	} else if (strcmp(func_name, "strchr") == 0) {
+		uint32_t str_ptr, target;
+		int ok1, ok2;
+		char* str;
+		char* res;
+		str_ptr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+		target = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
+		if (!(ok1 && ok2)) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		str = dmem_read_string(str_ptr);
+		if (str == NULL) {
+			regs[EAX] = 0;
+			return 0;
+		}
+		res = strchr(str, target);
+		if (res == NULL) {
+			regs[EAX] = 0;
+		} else {
+			regs[EAX] = str_ptr + (res - str);
+		}
+		free(str);
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
