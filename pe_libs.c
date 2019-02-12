@@ -80,14 +80,9 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		/* 無視 */
 		return 0;
 	} else if (strcmp(func_name, "__getmainargs") == 0) {
-		uint32_t esp = regs[ESP];
 		uint32_t p_argc, p_argv, p_env;
-		int ok1 = 0, ok2 = 0, ok3 = 0;
 		int fail = 0;
-		p_argc = dmem_read_uint(&ok1, esp + 4, 4);
-		p_argv = dmem_read_uint(&ok2, esp + 8, 4);
-		p_env = dmem_read_uint(&ok3, esp + 12, 4);
-		fail = !(ok1 && ok2 && ok3);
+		fail = !dmem_get_args(regs[ESP], 3, &p_argc, &p_argv, &p_env);
 		fail = fail || !dmem_write_uint(p_argc, argc_value, 4);
 		fail = fail || !dmem_write_uint(p_argv, argv_value, 4);
 		fail = fail || !dmem_write_uint(p_env, WORK_ENV0, 4);
@@ -104,10 +99,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "puts") == 0) {
 		uint32_t ptr;
-		int ok;
 		char* str;
-		ptr = dmem_read_uint(&ok, regs[ESP] + 4, 4);
-		if (!ok) {
+		if (!dmem_get_args(regs[ESP], 1, &ptr)) {
 			regs[EAX] = -1;
 			return 0;
 		}
@@ -133,10 +126,7 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "_flsbuf") == 0) {
 		uint32_t chr, fp;
-		int ok1, ok2;
-		chr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
-		fp = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
-		if (!(ok1 && ok2)) {
+		if (!dmem_get_args(regs[ESP], 2, &chr, &fp)) {
 			regs[EAX] = -1;
 			return 0;
 		}
@@ -158,11 +148,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return PE_LIB_EXEC_EXIT;
 	} else if (strcmp(func_name, "fputs") == 0) {
 		uint32_t str_ptr, fp;
-		int ok1, ok2;
 		char* str;
-		str_ptr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
-		fp = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
-		if (!(ok1 && ok2)) {
+		if (!dmem_get_args(regs[ESP], 2, &str_ptr, &fp)) {
 			regs[EAX] = -1;
 			return 0;
 		}
@@ -184,12 +171,9 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "strchr") == 0) {
 		uint32_t str_ptr, target;
-		int ok1, ok2;
 		char* str;
 		char* res;
-		str_ptr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
-		target = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
-		if (!(ok1 && ok2)) {
+		if (!dmem_get_args(regs[ESP], 2, &str_ptr, &target)) {
 			regs[EAX] = -1;
 			return 0;
 		}
@@ -208,17 +192,14 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "strncmp") == 0) {
 		uint32_t sptr1, sptr2, n;
-		int ok1, ok2, ok3;
 		uint32_t i;
-		sptr1 = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
-		sptr2 = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
-		n = dmem_read_uint(&ok3, regs[ESP] + 12, 4);
-		if (!(ok1 && ok2 && ok3)) {
+		if (!dmem_get_args(regs[ESP], 3, &sptr1, &sptr2, &n)) {
 			regs[EAX] = -1;
 			return 0;
 		}
 		for (i = 0; i < n; i++) {
 			uint32_t c1, c2;
+			int ok1, ok2;
 			if (UINT32_MAX - sptr1 < i || UINT32_MAX - sptr2 < i) {
 				break;
 			}
@@ -241,15 +222,14 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "strlen") == 0) {
 		uint32_t str_ptr;
-		int ok;
 		uint32_t i;
-		str_ptr = dmem_read_uint(&ok, regs[ESP] + 4, 4);
-		if (!ok) {
+		if (!dmem_get_args(regs[ESP], 1, &str_ptr)) {
 			regs[EAX] = 0;
 			return 0;
 		}
 		i = 0;
 		for (;;) {
+			int ok;
 			uint32_t c = dmem_read_uint(&ok, str_ptr + i, 1);
 			if (!ok || c == 0 || (i == UINT32_MAX || UINT32_MAX - i - 1 < str_ptr)) {
 				regs[EAX] = i;
@@ -288,9 +268,7 @@ static uint32_t exec_libintl3(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "libintl_gettext") == 0) {
 		uint32_t msgid;
-		int ok;
-		msgid = dmem_read_uint(&ok, regs[ESP] + 4, 4);
-		if (!ok) {
+		if (!dmem_get_args(regs[ESP], 1, &msgid)) {
 			regs[EAX] = 0;
 		} else {
 			regs[EAX] = msgid;

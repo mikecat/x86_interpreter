@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdarg.h>
 #include "dmem_utils.h"
 #include "dynamic_memory.h"
 
@@ -41,4 +42,24 @@ char* dmem_read_string(uint32_t addr) {
 	if (ret == NULL) return NULL;
 	dmemory_read(ret, addr, size);
 	return ret;
+}
+
+int dmem_get_args(uint32_t esp, int num, ...) {
+	uint32_t* arg;
+	va_list args;
+	int ok = 1;
+	int i;
+	uint32_t addr = esp;
+	va_start(args, num);
+	for (i = 0; ok && i < num; i++) {
+		uint32_t* dest = va_arg(args, uint32_t*);
+		if (UINT32_MAX - addr < 4) {
+			ok = 0;
+			break;
+		}
+		addr += 4;
+		*dest = dmem_read_uint(&ok, addr, 4);
+	}
+	va_end(args);
+	return ok;
 }
