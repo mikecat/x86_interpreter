@@ -45,7 +45,6 @@ char* dmem_read_string(uint32_t addr) {
 }
 
 int dmem_get_args(uint32_t esp, int num, ...) {
-	uint32_t* arg;
 	va_list args;
 	int ok = 1;
 	int i;
