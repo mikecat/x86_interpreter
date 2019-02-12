@@ -55,6 +55,7 @@ int dmem_libc_strncmp(uint32_t* ret, uint32_t esp) {
 		} else if (c1 == 0) { /* c1 == c2 */
 			break;
 		}
+		if (i == UINT32_MAX) return 0;
 	}
 	*ret = 0;
 	return 1;
@@ -88,11 +89,12 @@ int dmem_libc_strlen(uint32_t* ret, uint32_t esp) {
 	for (;;) {
 		int ok;
 		uint32_t c = dmem_read_uint(&ok, str_ptr + i, 1);
-		if (!ok || (i == UINT32_MAX || UINT32_MAX - i - 1 < str_ptr)) return 0;
+		if (!ok) return 0;
 		if (c == 0) {
 			*ret = i;
 			return 1;
 		}
+		if (i == UINT32_MAX || UINT32_MAX - i - 1 < str_ptr) return 0;
 		i++;
 	}
 }
