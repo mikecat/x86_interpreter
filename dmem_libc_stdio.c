@@ -57,6 +57,25 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 #undef REALLOC_RESULT
 }
 
+int dmem_libc_fflush(uint32_t* ret, uint32_t esp) {
+	uint32_t fp;
+	FILE* fp_use;
+	if (!dmem_get_args(esp, 1, &fp)) return 0;
+
+	if (fp == 0) {
+		fp_use = NULL;
+	} else if (fp == iob_addr + 32 * 1) {
+		fp_use = stdout;
+	} else if (fp == iob_addr + 32 * 2) {
+		fp_use = stderr;
+	} else {
+		*ret = -1;
+		return 1;
+	}
+	*ret = fflush(fp_use) == 0 ? 0 : -1;
+	return 1;
+}
+
 int dmem_libc_fprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t fp, format_ptr;
 	char* result;

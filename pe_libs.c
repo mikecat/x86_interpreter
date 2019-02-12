@@ -163,6 +163,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "_errno") == 0) {
 		regs[EAX] = WORK_ERRNO;
 		return 0;
+	} else if (strcmp(func_name, "fflush") == 0) {
+		CALL_DMEM_LIBC(fflush)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
