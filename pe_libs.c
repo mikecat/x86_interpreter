@@ -156,6 +156,32 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		/* バッファをフラッシュ */
 		/* ストリームを閉じる */
 		return PE_LIB_EXEC_EXIT;
+	} else if (strcmp(func_name, "fputs") == 0) {
+		uint32_t str_ptr, fp;
+		int ok1, ok2;
+		char* str;
+		str_ptr = dmem_read_uint(&ok1, regs[ESP] + 4, 4);
+		fp = dmem_read_uint(&ok2, regs[ESP] + 8, 4);
+		if (!(ok1 && ok2)) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		str = dmem_read_string(str_ptr);
+		if (str == NULL) {
+			regs[EAX] = -1;
+			return 0;
+		}
+		if (fp == WORK_IOB + 32 * 1) {
+			fputs(str, stdout);
+			regs[EAX] = 1;
+		} else if (fp == WORK_IOB + 32 * 2) {
+			fputs(str, stderr);
+			regs[EAX] = 1;
+		} else {
+			regs[EAX] = -1;
+		}
+		free(str);
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
