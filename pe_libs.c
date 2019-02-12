@@ -14,7 +14,7 @@ static uint32_t argc_value, argv_value;
 #define WORK_ENV0 (work_origin + UINT32_C(0x00000008))
 #define WORK_PNAME (work_origin + UINT32_C(0x0000000c))
 #define WORK_FMODE (work_origin + UINT32_C(0x00000010))
-#define WORK_IOS (work_origin + UINT32_C(0x00001000))
+#define WORK_IOB (work_origin + UINT32_C(0x00001000))
 #define WORK_SIZE UINT32_C(0x00002000)
 
 enum {
@@ -89,7 +89,7 @@ uint32_t get_buffer_address(int lib_id, const char* identifier, uint32_t default
 	switch (lib_id) {
 	case LIB_ID_MSVCRT:
 		if (strcmp(identifier, "_iob") == 0) {
-			return WORK_IOS;
+			return WORK_IOB;
 		}
 		break;
 	}
