@@ -178,25 +178,6 @@ int dmem_libc_sprintf(uint32_t* ret, uint32_t esp) {
 	}
 }
 
-int dmem_libc_fputs(uint32_t* ret, uint32_t esp) {
-	uint32_t str_ptr, fp;
-	char* str;
-	if (!dmem_get_args(esp, 2, &str_ptr, &fp)) return 0;
-
-	str = dmem_read_string(str_ptr);
-	if (str == NULL) return 0;
-
-	if (fp == iob_addr + 32 * 1) {
-		*ret = fputs(str, stdout) >= 0 ? 1 : -1;
-	} else if (fp == iob_addr + 32 * 2) {
-		*ret = fputs(str, stderr) >= 0 ? 1 : -1;
-	} else {
-		*ret = -1;
-	}
-	free(str);
-	return 1;
-}
-
 int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t fp, format_ptr, vargs;
 	char* result;
@@ -224,6 +205,25 @@ int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp) {
 		free(result);
 		return 1;
 	}
+}
+
+int dmem_libc_fputs(uint32_t* ret, uint32_t esp) {
+	uint32_t str_ptr, fp;
+	char* str;
+	if (!dmem_get_args(esp, 2, &str_ptr, &fp)) return 0;
+
+	str = dmem_read_string(str_ptr);
+	if (str == NULL) return 0;
+
+	if (fp == iob_addr + 32 * 1) {
+		*ret = fputs(str, stdout) >= 0 ? 1 : -1;
+	} else if (fp == iob_addr + 32 * 2) {
+		*ret = fputs(str, stderr) >= 0 ? 1 : -1;
+	} else {
+		*ret = -1;
+	}
+	free(str);
+	return 1;
 }
 
 int dmem_libc_puts(uint32_t* ret, uint32_t esp) {
