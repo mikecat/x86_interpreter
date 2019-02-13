@@ -1387,7 +1387,45 @@ int step(void) {
 		}
 		break;
 	case OP_IDIV:
-		NOT_IMPLEMENTED(OP_IDIV)
+		{
+			uint64_t d;
+			uint32_t mask = op_width == 4 ? UINT32_C(0xffffffff) : UINT32_C(0xffffffff) >> (8 * (4 - op_width));
+			uint32_t limit = mask >> 1;
+			uint32_t sign_mask = UINT32_C(1) << (8 * op_width - 1);
+			uint64_t sign_mask2 = UINT64_C(1) << (8 * op_width * 2 - 1);
+			uint32_t s = src_value & mask;
+			uint32_t rem;
+			int q_negative = 0, r_negative = 0;
+			if (op_width == 1) d = regs[EAX] & 0xffff;
+			else if (op_width == 2) d = ((regs[EDX] & 0xffff) << 16) | (regs[EAX] & 0xffff);
+			else d = ((uint64_t)regs[EDX] << 32) | regs[EAX];
+			if (s == 0) {
+				fprintf(stderr, "divide by zero at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			if (d & sign_mask2) { d = ~d + 1; q_negative = !q_negative; r_negative = !r_negative; }
+			if (s & sign_mask) { s = ~s + 1; q_negative = !q_negative; }
+			rem = (uint32_t)(d % s);
+			d = d / s;
+			if (d > (q_negative ? limit + 1 : limit)) {
+				fprintf(stderr, "result of division too large at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			if (q_negative) d = ~d + 1;
+			if (r_negative) rem = ~rem + 1;
+			if (op_width == 1) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) |
+					((rem & 0xff) << 8) | (uint32_t)(d & 0xff);
+			} else if (op_width == 2) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) | (uint32_t)(d & 0xffff);
+				regs[EDX] = (regs[EDX] & UINT32_C(0xffff0000)) | (rem & 0xffff);
+			} else {
+				regs[EAX] = (uint32_t)d;
+				regs[EDX] = rem;
+			}
+		}
 		break;
 	case OP_PUSH:
 		if (!step_push(inst_addr, src_value, op_width, is_addr_16bit)) return 0;
