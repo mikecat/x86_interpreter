@@ -1307,7 +1307,26 @@ int step(void) {
 		result_write = 1;
 		break;
 	case OP_MUL:
-		NOT_IMPLEMENTED(OP_MUL)
+		{
+			uint32_t mask = op_width == 4 ? UINT32_C(0xffffffff) : UINT32_C(0xffffffff) >> (8 * (4 - op_width));
+			uint32_t s = src_value & mask;
+			uint64_t d = regs[EAX] & mask;
+			d *= s;
+			if (op_width == 1) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) | (uint32_t)(d & 0xffff);
+			} else if (op_width == 2) {
+				regs[EAX] = (regs[EAX] & UINT32_C(0xffff0000)) | (uint32_t)(d & 0xffff);
+				regs[EDX] = (regs[EDX] & UINT32_C(0xffff0000)) | (uint32_t)((d >> 16) & 0xffff);
+			} else {
+				regs[EAX] = (uint32_t)d;
+				regs[EDX] = (uint32_t)(d >> 32);
+			}
+			if (((d >> (8 * op_width)) & mask) == 0) {
+				eflags &= ~(CF | OF);
+			} else {
+				eflags |= (CF | OF);
+			}
+		}
 		break;
 	case OP_IMUL:
 		{
