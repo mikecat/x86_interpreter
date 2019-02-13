@@ -24,10 +24,11 @@ static uint32_t malloc_core(uint32_t size) {
 	heap_info_t* ptr = heap_info_head;
 	heap_info_t* new_node;
 	uint32_t addr = heap_start;
-	if (size == 0 || UINT32_MAX - 63 < size) {
+	if (UINT32_MAX - 63 < size) {
 		return 0;
 	}
 	size = (size + UINT32_C(63)) / UINT32_C(64) * UINT32_C(64);
+	if (size == 0) size = 64;
 	while(ptr != NULL) {
 		if (!ptr->used && ptr->size >= size) {
 			/* 十分な空き領域が見つかった */
