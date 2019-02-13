@@ -5,6 +5,7 @@
 
 int dmem_libc_stdlib_initialize(uint32_t heap_start_addr);
 
+int dmem_libc_free(uint32_t* ret, uint32_t esp);
 int dmem_libc_malloc(uint32_t* ret, uint32_t esp);
 
 #endif

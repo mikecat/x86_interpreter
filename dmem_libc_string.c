@@ -39,6 +39,30 @@ int dmem_libc_strcpy(uint32_t* ret, uint32_t esp) {
 	return 1;
 }
 
+int dmem_libc_strncpy(uint32_t* ret, uint32_t esp) {
+	uint32_t dest, src, limit;
+	uint32_t i;
+	int use_src = 1;
+	int printf(const char*, ...);
+	if (!dmem_get_args(esp, 3, &dest, &src, &limit)) return 0;
+	if (!dmemory_is_allocated(dest, limit)) return 0;
+	for (i = 0; i < limit; i++) {
+		uint8_t c;
+		int ok = 0;
+		if (use_src) {
+			if (UINT32_MAX - i < src) return 0;
+			c = (uint8_t)dmem_read_uint(&ok, src + i, 1);
+			if (!ok) return 0;
+			if (c == 0) use_src = 0;
+		} else {
+			c = 0;
+		}
+		dmemory_write(&c, dest + i, 1);
+	}
+	*ret = dest;
+	return 1;
+}
+
 int dmem_libc_strcmp(uint32_t* ret, uint32_t esp) {
 	uint32_t sptr1, sptr2;
 	uint32_t i;
@@ -108,6 +132,20 @@ int dmem_libc_strchr(uint32_t* ret, uint32_t esp) {
 		*ret = str_ptr + (res - str);
 	}
 	free(str);
+	return 1;
+}
+
+int dmem_libc_memset(uint32_t* ret, uint32_t esp) {
+	uint32_t target, data, size;
+	char* buf;
+	if (!dmem_get_args(esp, 3, &target, &data, &size)) return 0;
+	if (!dmemory_is_allocated(target, size)) return 0;
+	buf = malloc(size);
+	if (buf == NULL) return 0;
+	memset(buf, (uint8_t)data, size);
+	dmemory_write(buf, target, size);
+	free(buf);
+	*ret = target;
 	return 1;
 }
 

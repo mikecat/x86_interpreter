@@ -181,6 +181,12 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		CALL_DMEM_LIBC(strcpy)
 	} else if (strcmp(func_name, "memcpy") == 0) {
 		CALL_DMEM_LIBC(memcpy)
+	} else if (strcmp(func_name, "free") == 0) {
+		CALL_DMEM_LIBC(free)
+	} else if (strcmp(func_name, "strncpy") == 0) {
+		CALL_DMEM_LIBC(strncpy)
+	} else if (strcmp(func_name, "memset") == 0) {
+		CALL_DMEM_LIBC(memset)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;

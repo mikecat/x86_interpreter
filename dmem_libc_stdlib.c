@@ -19,6 +19,35 @@ int dmem_libc_stdlib_initialize(uint32_t heap_start_addr) {
 	return 1;
 }
 
+int dmem_libc_free(uint32_t* ret, uint32_t esp) {
+	uint32_t addr_to_free;
+	heap_info_t* prev_ptr = NULL;
+	heap_info_t* ptr = heap_info_head;
+	uint32_t addr = heap_start;
+	(void)ret; /* free()は戻り値がvoidなので、戻り値を更新しない */
+	if (!dmem_get_args(esp, 1, &addr_to_free)) return 0;
+	if (addr_to_free == 0) {
+		return 1;
+	}
+	while (ptr != NULL) {
+		if (ptr->used && addr == addr_to_free) {
+			ptr->used = 0;
+			if (prev_ptr != NULL && !prev_ptr->used) {
+				/* 空き領域を統合する */
+				prev_ptr->size += ptr->size;
+				prev_ptr->next = ptr->next;
+				free(ptr);
+			}
+			return 1;
+		}
+		addr += ptr->size;
+		prev_ptr = ptr;
+		ptr = ptr->next;
+	}
+	/* 該当の領域が見つからなかった */
+	return 0;
+}
+
 int dmem_libc_malloc(uint32_t* ret, uint32_t esp) {
 	uint32_t size;
 	heap_info_t** pptr = &heap_info_head;
