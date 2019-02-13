@@ -157,6 +157,27 @@ int dmem_libc_printf(uint32_t* ret, uint32_t esp) {
 	}
 }
 
+int dmem_libc_sprintf(uint32_t* ret, uint32_t esp) {
+	uint32_t dest, format_ptr;
+	char* result;
+	uint32_t result_len;
+	if (!dmem_get_args(esp, 2, &dest, &format_ptr)) return 0;
+
+	result_len = printf_core(&result, format_ptr, esp + 4);
+	if (result == NULL) {
+		return 0;
+	} else {
+		if (UINT32_MAX - 1 < result_len || !dmemory_is_allocated(dest, result_len + 1)) {
+			free(result);
+			return 0;
+		}
+		dmemory_write(result, dest, result_len + 1);
+		*ret = result_len;
+		free(result);
+		return 1;
+	}
+}
+
 int dmem_libc_fputs(uint32_t* ret, uint32_t esp) {
 	uint32_t str_ptr, fp;
 	char* str;
