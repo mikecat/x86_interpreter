@@ -14,7 +14,14 @@ static uint32_t heap_start;
 static heap_info_t* heap_info_head;
 
 int dmem_libc_stdlib_initialize(uint32_t heap_start_addr) {
-	heap_start = heap_start_addr;
+	if (heap_start_addr % 64 != 0) {
+		uint32_t delta = 64 - heap_start_addr % 64;
+		if (UINT32_MAX - delta < heap_start_addr) return 0;
+		heap_start = heap_start_addr + delta;
+	} else {
+		heap_start = heap_start_addr;
+	}
+	if (heap_start == 0) heap_start = 64;
 	heap_info_head = NULL;
 	return 1;
 }
