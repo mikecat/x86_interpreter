@@ -105,3 +105,80 @@ int dmem_libc_malloc(uint32_t* ret, uint32_t esp) {
 	*ret = malloc_core(size);
 	return 1;
 }
+
+int dmem_libc_realloc(uint32_t* ret, uint32_t esp) {
+	uint32_t old_addr, new_size;
+	heap_info_t* ptr = heap_info_head;
+	uint32_t addr = heap_start;
+	int printf(const char*,...);
+	if (!dmem_get_args(esp, 2, &old_addr, &new_size)) return 0;
+	if (old_addr == 0) {
+		*ret = malloc_core(new_size);
+		return 1;
+	}
+	if (UINT32_MAX - 63 < new_size) {
+		return 0;
+	}
+	new_size = (new_size + UINT32_C(63)) / UINT32_C(64) * UINT32_C(64);
+	if (new_size == 0) new_size = 64;
+	while (ptr != NULL) {
+		if (ptr->used && addr == old_addr) {
+			if (ptr->size == new_size) {
+				/* そのまま */
+				*ret = addr;
+			} else if (new_size < ptr->size) {
+				/* 領域を減らす */
+				uint32_t delta = ptr->size - new_size;
+				if (ptr->next != NULL && !ptr->next->used) {
+					if (UINT32_MAX - delta < ptr->next->size) return 0;
+					ptr->next->size += delta;
+				} else {
+					heap_info_t* new_node = malloc(sizeof(heap_info_t));
+					if (new_node == NULL) return 0;
+					new_node->size = delta;
+					new_node->used = 0;
+					new_node->next = ptr->next;
+					ptr->next = new_node;
+				}
+				ptr->size = new_size;
+				*ret = addr;
+			} else {
+				/* 領域を増やす */
+				uint32_t delta = new_size - ptr->size;
+				if (ptr->next != NULL && !ptr->next->used && ptr->next->size <= delta) {
+					/* 今の領域を再利用して増やせる余裕がある */
+					if (ptr->next->size == delta) {
+						heap_info_t* next_node = ptr->next;
+						ptr->next = ptr->next->next;
+						free(next_node);
+					} else {
+						ptr->next->size -= delta;
+					}
+					ptr->size = new_size;
+					*ret = addr;
+				} else {
+					/* 余裕が無い */
+					uint32_t old_size = ptr->size;
+					char* buf = malloc(old_size);
+					if (buf == NULL) {
+						*ret = 0;
+					} else {
+						uint32_t new_addr;
+						dmemory_read(buf, addr, old_size);
+						if (!free_core(addr)) {
+							free(buf);
+							return 0;
+						}
+						new_addr = malloc_core(new_size);
+						if (new_addr != 0) dmemory_write(buf, new_addr, old_size);
+						free(buf);
+						*ret = new_addr;
+					}
+				}
+			}
+			return 1;
+		}
+	}
+	/* 指定の領域が見つからなかった */
+	return 0;
+}
