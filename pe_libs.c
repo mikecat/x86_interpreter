@@ -127,22 +127,12 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		regs[EAX] = 0;
 		return 0;
 	} else if (strcmp(func_name, "_flsbuf") == 0) {
-		uint32_t chr, fp;
-		if (!dmem_get_args(regs[ESP], 2, &chr, &fp)) {
-			regs[EAX] = -1;
+		if (dmem_flsbuf(&regs[EAX], regs[ESP])) {
 			return 0;
-		}
-		/* TODO: バッファの処理? */
-		if (fp == WORK_IOB + 32 * 1) {
-			fputc(chr, stdout);
-			regs[EAX] = chr;
-		} else if (fp == WORK_IOB + 32 * 2) {
-			fputc(chr, stderr);
-			regs[EAX] = chr;
 		} else {
-			regs[EAX] = -1; /* putchar失敗 */
+			fprintf(stderr, "failure in executing _flsbuf() in msvcrt.dll\n");
+			return PE_LIB_EXEC_FAILED;
 		}
-		return 0;
 	} else if (strcmp(func_name, "exit") == 0) {
 		/* atexitで登録した関数を実行 */
 		/* バッファをフラッシュ */

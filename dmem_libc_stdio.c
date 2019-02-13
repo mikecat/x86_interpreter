@@ -5,10 +5,68 @@
 #include "dmem_utils.h"
 #include "dmem_libc_stdio.h"
 
+/* 32 * 128 = 4096 */
+#define BYTE_PER_IOB_FILE 32
+#define IOB_SIZE 128
+
+typedef struct {
+	FILE* fp;
+	int is_standard;
+	int can_read;
+	int can_write;
+	enum pop_t {
+		POP_NONE,
+		POP_READ,
+		POP_WRITE,
+		POP_SEEK
+	} previous_operation;
+} file_info_t;
+
 static uint32_t iob_addr;
+static file_info_t file_info[IOB_SIZE];
+
+#define FILE_INFO_IDX_STDIN 0
+#define FILE_INFO_IDX_STDOUT 1
+#define FILE_INFO_IDX_STDERR 2
+#define FILE_INFO_IDX_USER 3
+
+static file_info_t* file_ptr_to_info(uint32_t file_ptr) {
+	uint32_t delta;
+	if (file_ptr < iob_addr) return NULL;
+	delta = file_ptr - iob_addr;
+	if (delta % BYTE_PER_IOB_FILE != 0) return NULL;
+	delta /= BYTE_PER_IOB_FILE;
+	return delta < IOB_SIZE ? &file_info[delta] : NULL;
+}
+
+static uint32_t info_to_file_ptr(const file_info_t* info) {
+	ptrdiff_t delta = info - file_info;
+	uint32_t addr_delta;
+	if (delta < 0 || UINT32_MAX / BYTE_PER_IOB_FILE < (uint32_t)delta) return 0;
+	addr_delta = BYTE_PER_IOB_FILE * (uint32_t)delta;
+	if (UINT32_MAX - iob_addr < addr_delta) return 0;
+	return iob_addr + addr_delta;
+}
 
 int dmem_libc_stdio_initialize(uint32_t iob_addr_in) {
+	int i;
 	iob_addr = iob_addr_in;
+	for (i = 0; i < IOB_SIZE; i++) {
+		file_info[i].fp = NULL;
+		file_info[i].is_standard = 0;
+		file_info[i].can_read = 0;
+		file_info[i].can_write = 0;
+		file_info[i].previous_operation = POP_NONE;
+	}
+	file_info[0].fp = stdin;
+	file_info[0].is_standard = 1;
+	file_info[0].can_read = 1;
+	file_info[1].fp = stdout;
+	file_info[1].is_standard = 1;
+	file_info[1].can_write = 1;
+	file_info[2].fp = stderr;
+	file_info[2].is_standard = 1;
+	file_info[2].can_write = 1;
 	return 1;
 }
 
@@ -89,22 +147,45 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 #undef REALLOC_RESULT
 }
 
+static int fflush_core(file_info_t* info) {
+	if (info->fp == NULL) return 0;
+	if (info->can_write && info->previous_operation != POP_READ) {
+		return fflush(info->fp) == 0 ? 1 : 0;
+	}
+	/* 未定義 */
+	return 1;
+}
+
+static int file_write(size_t* size_written, file_info_t* info, const void* data, size_t length) {
+	size_t written_size;
+	if (info == NULL || info->fp == NULL || !info->can_write) {
+		return 0;
+	}
+	written_size = fwrite(data, 1, length, info->fp);
+	if (size_written != NULL) *size_written = written_size;
+	info->previous_operation = POP_WRITE;
+	return 1;
+}
+
 int dmem_libc_fflush(uint32_t* ret, uint32_t esp) {
 	uint32_t fp;
-	FILE* fp_use;
 	if (!dmem_get_args(esp, 1, &fp)) return 0;
 
 	if (fp == 0) {
-		fp_use = NULL;
-	} else if (fp == iob_addr + 32 * 1) {
-		fp_use = stdout;
-	} else if (fp == iob_addr + 32 * 2) {
-		fp_use = stderr;
+		int all_ok = 1;
+		int i;
+		for (i = 0; i < IOB_SIZE; i++) {
+			if (file_info[i].fp != NULL && !fflush_core(&file_info[i])) all_ok = 0;
+		}
+		*ret = all_ok ? 0 : -1;
 	} else {
-		*ret = -1;
-		return 1;
+		file_info_t* info = file_ptr_to_info(fp);
+		if (info == NULL) {
+			*ret = -1;
+		} else {
+			*ret = fflush_core(info) ? 0 : -1;
+		}
 	}
-	*ret = fflush(fp_use) == 0 ? 0 : -1;
 	return 1;
 }
 
@@ -112,25 +193,18 @@ int dmem_libc_fprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t fp, format_ptr;
 	char* result;
 	uint32_t result_len;
-	FILE* fp_use;
 	if (!dmem_get_args(esp, 2, &fp, &format_ptr)) return 0;
 
-	if (fp == iob_addr + 32 * 1) {
-		fp_use = stdout;
-	} else if (fp == iob_addr + 32 * 2) {
-		fp_use = stderr;
-	} else {
-		*ret = -1;
-		return 1;
-	}
 	result_len = printf_core(&result, format_ptr, esp + 8);
 	if (result == NULL) {
 		return 0;
 	} else {
-		if (fputs(result, fp_use) < 0) {
-			*ret = -1;
-		} else {
+		size_t size_written;
+		if (file_write(&size_written, file_ptr_to_info(fp), result, result_len) &&
+		size_written == result_len) {
 			*ret = result_len;
+		} else {
+			*ret = -1;
 		}
 		free(result);
 		return 1;
@@ -147,10 +221,12 @@ int dmem_libc_printf(uint32_t* ret, uint32_t esp) {
 	if (result == NULL) {
 		return 0;
 	} else {
-		if (fputs(result, stdout) < 0) {
-			*ret = -1;
-		} else {
+		size_t size_written;
+		if (file_write(&size_written, &file_info[FILE_INFO_IDX_STDOUT], result, result_len) &&
+		size_written == result_len) {
 			*ret = result_len;
+		} else {
+			*ret = -1;
 		}
 		free(result);
 		return 1;
@@ -210,15 +286,16 @@ int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp) {
 int dmem_libc_fputs(uint32_t* ret, uint32_t esp) {
 	uint32_t str_ptr, fp;
 	char* str;
+	size_t str_len, size_written;
 	if (!dmem_get_args(esp, 2, &str_ptr, &fp)) return 0;
 
 	str = dmem_read_string(str_ptr);
 	if (str == NULL) return 0;
 
-	if (fp == iob_addr + 32 * 1) {
-		*ret = fputs(str, stdout) >= 0 ? 1 : -1;
-	} else if (fp == iob_addr + 32 * 2) {
-		*ret = fputs(str, stderr) >= 0 ? 1 : -1;
+	str_len = strlen(str);
+	if (file_write(&size_written, file_ptr_to_info(fp), str, str_len) &&
+	size_written == str_len) {
+		*ret = 1;
 	} else {
 		*ret = -1;
 	}
@@ -229,15 +306,37 @@ int dmem_libc_fputs(uint32_t* ret, uint32_t esp) {
 int dmem_libc_puts(uint32_t* ret, uint32_t esp) {
 	uint32_t ptr;
 	char* str;
+	size_t str_len, size_written;
 	if (!dmem_get_args(esp, 1, &ptr)) return 0;
 
 	str = dmem_read_string(ptr);
-	if (str == NULL) {
-		return 0;
+	if (str == NULL) return 0;
+
+	str_len = strlen(str);
+	str[str_len] = '\n';
+	if (file_write(&size_written, &file_info[FILE_INFO_IDX_STDOUT], str, str_len + 1) &&
+	size_written == str_len) {
+		*ret = 1;
 	} else {
-		int putslet = puts(str);
-		free(str);
-		*ret = putslet >= 0 ? 1 : -1;
-		return 1;
+		*ret = -1;
 	}
+	free(str);
+	return 1;
+}
+
+int dmem_flsbuf(uint32_t* ret, uint32_t esp) {
+	uint32_t chr, fp;
+	uint8_t chr_buffer;
+	size_t size_written;
+	if (!dmem_get_args(esp, 2, &chr, &fp)) return 0;
+
+	/* TODO: バッファの処理? */
+
+	chr_buffer = (uint8_t)chr;
+	if (file_write(&size_written, file_ptr_to_info(fp), &chr_buffer, 1) && size_written == 1) {
+		*ret = chr_buffer;
+	} else {
+		*ret = -1; /* putchar失敗 */
+	}
+	return 1;
 }
