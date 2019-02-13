@@ -309,6 +309,7 @@ int step(void) {
 			use_mod_rm = 1;
 			is_dest_reg = 1;
 			imul_enable_dest = 1;
+			need_dest_value = 1;
 		} else if ((fetch_data & 0xFE) == 0xB6) {
 			/* MOVZX */
 			op_kind = OP_MOVZX;
@@ -1151,7 +1152,12 @@ int step(void) {
 		break;
 	case OP_SHIFT:
 		{
-			uint32_t shift_width = src_value & 31;
+			uint32_t shift_width;
+			if (op_shift_kind == OP_SHLD || op_shift_kind == OP_SHRD) {
+				shift_width = (use_imm ? imm_value : regs[ECX]) & 31;
+			} else {
+				shift_width = src_value & 31;
+			}
 			if (shift_width > 0) {
 				uint32_t next_eflags = eflags;
 				uint32_t sign_mask = UINT32_C(1) << (8 * op_width - 1);
@@ -1200,13 +1206,11 @@ int step(void) {
 					enable_result_flags = 1;
 					break;
 				case OP_SHLD:
-					shift_width = (use_imm ? imm_value : regs[ECX]) & 31;
 					result64 = ((uint64_t)dest_value << shift_width) | ((src_value & value_mask) >> (8 * op_width - shift_width));
 					carry = (result64 & upper_carry_mask) != 0;
 					enable_result_flags = 1;
 					break;
 				case OP_SHRD:
-					shift_width = (use_imm ? imm_value : regs[ECX]) & 31;
 					result64 = ((dest_value & value_mask) >> shift_width) | ((uint64_t)src_value << (8 * op_width - shift_width));
 					carry = ((dest_value >> (shift_width - 1)) & 1) != 0;
 					enable_result_flags = 1;
