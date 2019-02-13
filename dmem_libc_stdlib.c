@@ -4,6 +4,8 @@
 #include "dynamic_memory.h"
 #include "dmem_utils.h"
 
+#define HEAP_ALIGN UINT32_C(64)
+
 typedef struct heap_info_t {
 	uint32_t size;
 	int used;
@@ -14,14 +16,14 @@ static uint32_t heap_start;
 static heap_info_t* heap_info_head;
 
 int dmem_libc_stdlib_initialize(uint32_t heap_start_addr) {
-	if (heap_start_addr % 64 != 0) {
-		uint32_t delta = 64 - heap_start_addr % 64;
+	if (heap_start_addr % HEAP_ALIGN != 0) {
+		uint32_t delta = HEAP_ALIGN - heap_start_addr % HEAP_ALIGN;
 		if (UINT32_MAX - delta < heap_start_addr) return 0;
 		heap_start = heap_start_addr + delta;
 	} else {
 		heap_start = heap_start_addr;
 	}
-	if (heap_start == 0) heap_start = 64;
+	if (heap_start == 0) heap_start = HEAP_ALIGN;
 	heap_info_head = NULL;
 	return 1;
 }
@@ -31,11 +33,11 @@ static uint32_t malloc_core(uint32_t size) {
 	heap_info_t* ptr = heap_info_head;
 	heap_info_t* new_node;
 	uint32_t addr = heap_start;
-	if (UINT32_MAX - 63 < size) {
+	if (UINT32_MAX - (HEAP_ALIGN - 1) < size) {
 		return 0;
 	}
-	size = (size + UINT32_C(63)) / UINT32_C(64) * UINT32_C(64);
-	if (size == 0) size = 64;
+	size = (size + (HEAP_ALIGN - 1)) / HEAP_ALIGN * HEAP_ALIGN;
+	if (size == 0) size = HEAP_ALIGN;
 	while(ptr != NULL) {
 		if (!ptr->used && ptr->size >= size) {
 			/* 十分な空き領域が見つかった */
@@ -123,11 +125,11 @@ int dmem_libc_realloc(uint32_t* ret, uint32_t esp) {
 		*ret = malloc_core(new_size);
 		return 1;
 	}
-	if (UINT32_MAX - 63 < new_size) {
+	if (UINT32_MAX - (HEAP_ALIGN - 1) < new_size) {
 		return 0;
 	}
-	new_size = (new_size + UINT32_C(63)) / UINT32_C(64) * UINT32_C(64);
-	if (new_size == 0) new_size = 64;
+	new_size = (new_size + (HEAP_ALIGN - 1)) / HEAP_ALIGN * HEAP_ALIGN;
+	if (new_size == 0) new_size = HEAP_ALIGN;
 	while (ptr != NULL) {
 		if (ptr->used && addr == old_addr) {
 			if (ptr->size == new_size) {
