@@ -1512,10 +1512,22 @@ int step(void) {
 		NOT_IMPLEMENTED(OP_JUMP_FAR)
 		break;
 	case OP_CBW:
-		NOT_IMPLEMENTED(OP_CBW)
+		if (op_width == 2) {
+			result = src_value & 0xff;
+			if (result & 0x80) result |= 0xff00;
+		} else {
+			result = src_value & 0xffff;
+			if (result & 0x8000) result |= UINT32_C(0xffff0000);
+		}
+		result_write = 1;
 		break;
 	case OP_CWD:
-		NOT_IMPLEMENTED(OP_CWD)
+		if (op_width == 2) {
+			result = src_value & 0x8000 ? 0xffff : 0x0000;
+		} else {
+			result = src_value & UINT32_C(0x80000000) ? UINT32_C(0xffffffff) : UINT32_C(0x00000000);
+		}
+		result_write = 1;
 		break;
 	case OP_SAHF:
 		NOT_IMPLEMENTED(OP_SAHF)
