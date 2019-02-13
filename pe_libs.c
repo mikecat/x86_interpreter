@@ -181,6 +181,10 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		CALL_DMEM_LIBC(realloc)
 	} else if (strcmp(func_name, "sprintf") == 0) {
 		CALL_DMEM_LIBC(sprintf)
+	} else if (strcmp(func_name, "fread") == 0) {
+		CALL_DMEM_LIBC(fread)
+	} else if (strcmp(func_name, "fclose") == 0) {
+		CALL_DMEM_LIBC(fclose)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;

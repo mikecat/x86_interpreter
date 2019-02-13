@@ -156,6 +156,17 @@ static int fflush_core(file_info_t* info) {
 	return 1;
 }
 
+static int file_read(size_t* size_read, file_info_t* info, void* data, size_t length) {
+	size_t read_size;
+	if (info == NULL || info->fp == NULL || !info->can_read) {
+		return 0;
+	}
+	read_size = fread(data, 1, length, info->fp);
+	if (size_read != NULL) *size_read = read_size;
+	info->previous_operation = POP_READ;
+	return 1;
+}
+
 static int file_write(size_t* size_written, file_info_t* info, const void* data, size_t length) {
 	size_t written_size;
 	if (info == NULL || info->fp == NULL || !info->can_write) {
@@ -164,6 +175,28 @@ static int file_write(size_t* size_written, file_info_t* info, const void* data,
 	written_size = fwrite(data, 1, length, info->fp);
 	if (size_written != NULL) *size_written = written_size;
 	info->previous_operation = POP_WRITE;
+	return 1;
+}
+
+int dmem_libc_fclose(uint32_t* ret, uint32_t esp) {
+	uint32_t fp;
+	file_info_t* info;
+	int fflush_ok, fclose_ok;
+	if (!dmem_get_args(esp, 1, &fp)) return 0;
+
+	info = file_ptr_to_info(fp);
+	if (info == NULL || info->fp == NULL) {
+		*ret = -1;
+		return 1;
+	}
+	fflush_ok = fflush_core(info);
+	fclose_ok = info->is_standard || fclose(info->fp) == 0;
+	info->fp = NULL;
+	info->is_standard = 0;
+	info->can_read = 0;
+	info->can_write = 0;
+	info->previous_operation = POP_NONE;
+	*ret = fflush_ok && fclose_ok ? 0 : -1;
 	return 1;
 }
 
@@ -321,6 +354,38 @@ int dmem_libc_puts(uint32_t* ret, uint32_t esp) {
 		*ret = -1;
 	}
 	free(str);
+	return 1;
+}
+
+int dmem_libc_fread(uint32_t* ret, uint32_t esp) {
+	uint32_t dest, elem_size, num, fp;
+	uint32_t all_size;
+	char* buffer;
+	size_t read_size;
+	if (!dmem_get_args(esp, 4, &dest, &elem_size, &num, &fp)) return 0;
+	if (elem_size == 0 || num == 0) {
+		/* 何もしない */
+		*ret = 0;
+		return 1;
+	}
+	if (UINT32_MAX / elem_size < num) {
+		*ret = 0;
+		return 1;
+	}
+	all_size = elem_size * num;
+	if (!dmemory_is_allocated(dest, all_size)) return 0;
+	buffer = malloc(all_size);
+	if (buffer == NULL) {
+		*ret = 0;
+		return 1;
+	}
+	if (file_read(&read_size, file_ptr_to_info(fp), buffer, all_size)) {
+		dmemory_write(buffer, dest, read_size);
+		*ret = read_size / elem_size;
+	} else {
+		*ret = 0;
+	}
+	free(buffer);
 	return 1;
 }
 
