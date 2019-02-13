@@ -175,6 +175,7 @@ int step(void) {
 	} op_arithmetic_kind = OP_ADD; /* 演算命令の種類 */
 	enum {
 		OP_ROL, OP_ROR, OP_RCL, OP_RCR, OP_SHL, OP_SHR, OP_SAR,
+		OP_SHLD, OP_SHRD,
 		OP_READ_MODRM_SHIFT /* mod r/mの値を見て演算の種類を決める(シフト系) */
 	} op_shift_kind = OP_ROL;
 	enum {
@@ -289,6 +290,18 @@ int step(void) {
 			use_mod_rm = 1;
 			is_dest_reg = 0;
 			SET_JMP_TAKE
+		} else if ((fetch_data & 0xFE) == 0xA4 || (fetch_data & 0xFE) == 0xAC) {
+			/* SHLD/SHRD */
+			op_kind = OP_SHIFT;
+			op_shift_kind = (fetch_data & 8) ? OP_SHRD : OP_SHLD;
+			op_width = (is_data_16bit ? 2 : 4);
+			use_mod_rm = 1;
+			is_dest_reg = 0;
+			if ((fetch_data & 1) == 0) {
+				use_imm = 1;
+				one_byte_imm = 1;
+			}
+			need_dest_value = 1;
 		} else if (fetch_data == 0xAF) {
 			/* IMUL r16/32, r/m16/32 */
 			op_kind = OP_IMUL;
@@ -1183,6 +1196,18 @@ int step(void) {
 					result64 = dest_value;
 					if (result64 & sign_mask) result64 |= UINT64_C(0xffffffff00000000);
 					result64 = result64 >> shift_width;
+					carry = ((dest_value >> (shift_width - 1)) & 1) != 0;
+					enable_result_flags = 1;
+					break;
+				case OP_SHLD:
+					shift_width = (use_imm ? imm_value : regs[ECX]) & 31;
+					result64 = ((uint64_t)dest_value << shift_width) | ((src_value & value_mask) >> (8 * op_width - shift_width));
+					carry = (result64 & upper_carry_mask) != 0;
+					enable_result_flags = 1;
+					break;
+				case OP_SHRD:
+					shift_width = (use_imm ? imm_value : regs[ECX]) & 31;
+					result64 = ((dest_value & value_mask) >> shift_width) | ((uint64_t)src_value << (8 * op_width - shift_width));
 					carry = ((dest_value >> (shift_width - 1)) & 1) != 0;
 					enable_result_flags = 1;
 					break;
