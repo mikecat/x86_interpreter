@@ -71,6 +71,27 @@ int dmem_libc_stdio_initialize(uint32_t iob_addr_in) {
 	return 1;
 }
 
+/* 出力結果の文字数(終端のNULは除く)を返す */
+static uint32_t integer_to_string(char* dest, uint32_t value,
+uint32_t least_digits, uint32_t radix, const char* digits) {
+	char buffer[64];
+	char *p = buffer + (sizeof(buffer) / sizeof(*buffer));
+	uint32_t digit_cnt = 0;
+	/* 変換する */
+	*(--p) = '\0';
+	do {
+		*(--p) = digits[value % radix];
+		value /= radix;
+		if (least_digits > 0) least_digits--;
+		digit_cnt++;
+	} while (value > 0 || least_digits > 0);
+	/* 結果を書き込む */
+	do {
+		*(dest++) = *p;
+	} while (*(p++) != '\0');
+	return digit_cnt;
+}
+
 static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_ptr) {
 	char* format, *itr;
 	char* result = NULL;
@@ -109,6 +130,15 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 			/* データサイズ */
 			/* 変換指定 */
 			switch (*itr2) {
+			case 'd': case 'i': {
+				uint32_t value;
+				int ok = 0;
+				value = dmem_read_uint(&ok, data_addr, 4);
+				if (!ok) FAIL
+				data_str = malloc(64);
+				if (data_str == NULL) FAIL
+				data_str_len = integer_to_string(data_str, value, 0, 10, "0123456789");
+				} break;
 			case 's': {
 				uint32_t str_ptr;
 				int ok = 0;
