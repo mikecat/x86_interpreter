@@ -89,16 +89,14 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 	} \
 	result = next_result;
 
+#define FAIL { free(format); free(result); return 0; }
+
 	itr = format;
 	for (;;) {
 		char* next_result;
 		if (*itr == '%') {
 			char* itr2 = itr + 1;
-			if (UINT32_MAX - 4 < data_addr) {
-				free(format);
-				free(result);
-				return 0;
-			}
+			if (UINT32_MAX - 4 < data_addr) FAIL
 			data_addr += 4;
 			/* フラグ */
 			/* 確保する長さ */
@@ -111,11 +109,11 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 				char* str;
 				size_t str_len;
 				str_ptr = dmem_read_uint(&ok, data_addr, 4);
-				if (!ok) { free(format); free(result); return 0; }
+				if (!ok) FAIL
 				str = dmem_read_string(str_ptr);
-				if (str == NULL) { free(format); free(result); return 0; }
+				if (str == NULL) FAIL
 				str_len = strlen(str);
-				if (str_len > UINT32_MAX) { free(str); free(format); free(result); return 0; }
+				if (str_len > UINT32_MAX) { free(str); FAIL }
 				REALLOC_RESULT(str_len)
 				memcpy(&result[result_len], str, str_len);
 				result_len += str_len;
@@ -146,6 +144,7 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 	*ret = result;
 	return result_len;
 #undef REALLOC_RESULT
+#undef FAIL
 }
 
 static int fflush_core(file_info_t* info) {
