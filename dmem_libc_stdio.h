@@ -7,6 +7,7 @@ int dmem_libc_stdio_initialize(uint32_t iob_addr_in);
 
 int dmem_libc_fclose(uint32_t* ret, uint32_t esp);
 int dmem_libc_fflush(uint32_t* ret, uint32_t esp);
+int dmem_libc_fopen(uint32_t* ret, uint32_t esp);
 int dmem_libc_fprintf(uint32_t* ret, uint32_t esp);
 int dmem_libc_printf(uint32_t* ret, uint32_t esp);
 int dmem_libc_sprintf(uint32_t* ret, uint32_t esp);

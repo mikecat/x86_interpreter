@@ -223,6 +223,119 @@ int dmem_libc_fflush(uint32_t* ret, uint32_t esp) {
 	return 1;
 }
 
+int dmem_libc_fopen(uint32_t* ret, uint32_t esp) {
+	uint32_t filename_ptr, mode_ptr;
+	char *filename, *mode;
+	file_info_t* new_info = NULL;
+	int i;
+	size_t si;
+	enum filemode_t {
+		MODE_NONE, MODE_READ, MODE_WRITE, MODE_APPEND
+	} mode_decoded = MODE_NONE;
+	int is_binary = 0;
+	int is_exclusive = 0;
+	int is_plus = 0;
+	int mode_decode_error = 0;
+	char mode_str[8];
+	int mode_str_idx = 0;
+	uint32_t ret_ptr;
+	if (!dmem_get_args(esp, 2, &filename_ptr, &mode_ptr)) return 0;
+	filename = dmem_read_string(filename_ptr);
+	mode = dmem_read_string(mode_ptr);
+	if (filename == NULL || mode == NULL) {
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+
+	/* モード文字列を解釈する */
+	for (si = 0; !mode_decode_error && mode[si] != '\0'; si++) {
+		switch (mode[si]) {
+		case 'r':
+			if (mode_decoded != MODE_NONE) mode_decode_error = 1;
+			mode_decoded = MODE_READ;
+			break;
+		case 'w':
+			if (mode_decoded != MODE_NONE) mode_decode_error = 1;
+			mode_decoded = MODE_WRITE;
+			break;
+		case 'a':
+			if (mode_decoded != MODE_NONE) mode_decode_error = 1;
+			mode_decoded = MODE_APPEND;
+			break;
+		case 'b':
+			is_binary = 1;
+			break;
+		case 'x':
+			is_exclusive = 1;
+			break;
+		case '+':
+			is_plus = 1;
+			break;
+		default:
+			mode_decode_error = 1;
+			break;
+		}
+	}
+	if (mode_decoded == MODE_NONE) mode_decode_error = 1;
+	if (is_exclusive && mode_decoded != MODE_WRITE) mode_decode_error = 1;
+	if (mode_decode_error) {
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+	/* 解釈に基づき、実行用のfopenに渡すモードを構築する */
+	switch (mode_decoded) {
+	case MODE_READ: mode_str[mode_str_idx++] = 'r'; break;
+	case MODE_WRITE: mode_str[mode_str_idx++] = 'w'; break;
+	case MODE_APPEND: mode_str[mode_str_idx++] = 'a'; break;
+	default:
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+	if (is_plus) mode_str[mode_str_idx++] = '+';
+	if (is_binary) mode_str[mode_str_idx++] = 'b';
+	if (is_exclusive) mode_str[mode_str_idx++] = 'x';
+	mode_str[mode_str_idx] = '\0';
+
+	/* 空きエントリを探す */
+	for (i = FILE_INFO_IDX_USER; i < IOB_SIZE; i++) {
+		if (file_info[i].fp == NULL) {
+			new_info = &file_info[i];
+			break;
+		}
+	}
+	if (new_info == NULL) {
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+	ret_ptr = info_to_file_ptr(new_info);
+	if (ret_ptr == 0) {
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+
+	/* ファイルを開く */
+	new_info->fp = fopen(filename, mode_str);
+	if (new_info->fp == NULL) {
+		free(filename); free(mode);
+		*ret = 0;
+		return 1;
+	}
+	new_info->is_standard = 0;
+	new_info->can_read = (mode_decoded == MODE_READ || is_plus);
+	new_info->can_write = (mode_decoded != MODE_READ || is_plus);
+	new_info->previous_operation = POP_NONE;
+
+	free(filename);
+	free(mode);
+	*ret = ret_ptr;
+	return 1;
+}
+
 int dmem_libc_fprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t fp, format_ptr;
 	char* result;
