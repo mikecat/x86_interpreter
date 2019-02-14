@@ -96,6 +96,8 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 		char* next_result;
 		if (*itr == '%') {
 			char* itr2 = itr + 1;
+			char* data_str = NULL;
+			uint32_t data_str_len = 0;
 			if (UINT32_MAX - 4 < data_addr) FAIL
 			data_addr += 4;
 			/* フラグ */
@@ -106,24 +108,26 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 			if (*itr2 == 's') {
 				uint32_t str_ptr;
 				int ok = 0;
-				char* str;
 				size_t str_len;
 				str_ptr = dmem_read_uint(&ok, data_addr, 4);
 				if (!ok) FAIL
-				str = dmem_read_string(str_ptr);
-				if (str == NULL) FAIL
-				str_len = strlen(str);
-				if (str_len > UINT32_MAX) { free(str); FAIL }
-				REALLOC_RESULT(str_len)
-				memcpy(&result[result_len], str, str_len);
-				result_len += str_len;
-				free(str);
+				data_str = dmem_read_string(str_ptr);
+				if (data_str == NULL) FAIL
+				str_len = strlen(data_str);
+				if (str_len > UINT32_MAX) { free(data_str); FAIL }
+				data_str_len = (uint32_t) str_len;
 			} else {
-				REALLOC_RESULT(itr2 - itr + 1)
-				memcpy(&result[result_len], itr, itr2 - itr + 1);
-				result_len += itr2 - itr + 1;
-				if (*itr2 == '\0') break;
+				data_str = malloc(itr2 - itr + 1);
+				if (data_str == NULL) FAIL
+				memcpy(data_str, itr, itr2 - itr + 1);
+				data_str_len = itr2 - itr + 1;
+				if (*itr2 == '\0') data_str_len--;
 			}
+			REALLOC_RESULT(data_str_len)
+			memcpy(&result[result_len], data_str, data_str_len);
+			result_len += data_str_len;
+			free(data_str);
+			if (*itr2 == '\0') break;
 			itr = itr2 + 1;
 		} else {
 			char* itr2 = itr;
