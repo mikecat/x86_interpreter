@@ -96,6 +96,9 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 		char* next_result;
 		if (*itr == '%') {
 			char* itr2 = itr + 1;
+			/* データの変換結果(精度考慮する、フィールド幅考慮しない)をdata_strに入れる */
+			/* freeするので、data_strはmalloc系で確保したものにする */
+			/* 長さはdata_str_lenで制御するので、NUL終端でなくて良い */
 			char* data_str = NULL;
 			uint32_t data_str_len = 0;
 			if (UINT32_MAX - 4 < data_addr) FAIL
@@ -105,7 +108,8 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 			/* 精度 */
 			/* データサイズ */
 			/* 変換指定 */
-			if (*itr2 == 's') {
+			switch (*itr2) {
+			case 's': {
 				uint32_t str_ptr;
 				int ok = 0;
 				size_t str_len;
@@ -116,12 +120,20 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 				str_len = strlen(data_str);
 				if (str_len > UINT32_MAX) { free(data_str); FAIL }
 				data_str_len = (uint32_t) str_len;
-			} else {
+				} break;
+			case '%':
+				data_str = malloc(1);
+				if (data_str == NULL) FAIL
+				data_str[0] = '%';
+				data_str_len = 1;
+				break;
+			default:
 				data_str = malloc(itr2 - itr + 1);
 				if (data_str == NULL) FAIL
 				memcpy(data_str, itr, itr2 - itr + 1);
 				data_str_len = itr2 - itr + 1;
 				if (*itr2 == '\0') data_str_len--;
+				break;
 			}
 			REALLOC_RESULT(data_str_len)
 			memcpy(&result[result_len], data_str, data_str_len);
