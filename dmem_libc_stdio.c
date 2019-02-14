@@ -132,7 +132,7 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 				if (data_str == NULL) FAIL
 				memcpy(data_str, itr, itr2 - itr + 1);
 				data_str_len = itr2 - itr + 1;
-				if (*itr2 == '\0') data_str_len--;
+				/* 最後(*itr2)がNULの場合も、NULも書き込みたいので、補正は不要 */
 				break;
 			}
 			REALLOC_RESULT(data_str_len)
