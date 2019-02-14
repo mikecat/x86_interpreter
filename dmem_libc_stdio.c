@@ -92,11 +92,11 @@ uint32_t least_digits, uint32_t radix, const char* digits) {
 	return digit_cnt;
 }
 
-static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_ptr) {
+static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) {
 	char* format, *itr;
 	char* result = NULL;
 	uint32_t result_len = 0;
-	uint32_t data_addr = data_prev_ptr;
+	uint32_t data_addr = data_ptr;
 	*ret = NULL;
 	format = dmem_read_string(format_ptr);
 	if (format == NULL) return 0;
@@ -111,6 +111,9 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 	result = next_result;
 
 #define FAIL { free(format); free(result); return 0; }
+#define ADVANCE_DATA_ADDR(size) \
+	if (UINT32_MAX - (size) < data_addr) FAIL \
+	data_addr += (size);
 
 	itr = format;
 	for (;;) {
@@ -122,8 +125,6 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 			/* 長さはdata_str_lenで制御するので、NUL終端でなくて良い */
 			char* data_str = NULL;
 			uint32_t data_str_len = 0;
-			if (UINT32_MAX - 4 < data_addr) FAIL
-			data_addr += 4;
 			/* フラグ */
 			/* 確保する長さ */
 			/* 精度 */
@@ -135,6 +136,7 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 				int ok = 0;
 				value = dmem_read_uint(&ok, data_addr, 4);
 				if (!ok) FAIL
+				ADVANCE_DATA_ADDR(4)
 				data_str = malloc(64);
 				if (data_str == NULL) FAIL
 				data_str_len = integer_to_string(data_str, value, 0, 10, "0123456789");
@@ -145,6 +147,7 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_prev_
 				size_t str_len;
 				str_ptr = dmem_read_uint(&ok, data_addr, 4);
 				if (!ok) FAIL
+				ADVANCE_DATA_ADDR(4)
 				data_str = dmem_read_string(str_ptr);
 				if (data_str == NULL) FAIL
 				str_len = strlen(data_str);
@@ -387,7 +390,8 @@ int dmem_libc_fprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t result_len;
 	if (!dmem_get_args(esp, 2, &fp, &format_ptr)) return 0;
 
-	result_len = printf_core(&result, format_ptr, esp + 8);
+	if (UINT32_MAX - 12 < esp) return 0;
+	result_len = printf_core(&result, format_ptr, esp + 12);
 	if (result == NULL) {
 		return 0;
 	} else {
@@ -409,7 +413,8 @@ int dmem_libc_printf(uint32_t* ret, uint32_t esp) {
 	uint32_t result_len;
 	if (!dmem_get_args(esp, 1, &format_ptr)) return 0;
 
-	result_len = printf_core(&result, format_ptr, esp + 4);
+	if (UINT32_MAX - 8 < esp) return 0;
+	result_len = printf_core(&result, format_ptr, esp + 8);
 	if (result == NULL) {
 		return 0;
 	} else {
@@ -431,7 +436,8 @@ int dmem_libc_sprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t result_len;
 	if (!dmem_get_args(esp, 2, &dest, &format_ptr)) return 0;
 
-	result_len = printf_core(&result, format_ptr, esp + 4);
+	if (UINT32_MAX - 12 < esp) return 0;
+	result_len = printf_core(&result, format_ptr, esp + 12);
 	if (result == NULL) {
 		return 0;
 	} else {
@@ -450,25 +456,18 @@ int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp) {
 	uint32_t fp, format_ptr, vargs;
 	char* result;
 	uint32_t result_len;
-	FILE* fp_use;
 	if (!dmem_get_args(esp, 3, &fp, &format_ptr, &vargs)) return 0;
 
-	if (fp == iob_addr + 32 * 1) {
-		fp_use = stdout;
-	} else if (fp == iob_addr + 32 * 2) {
-		fp_use = stderr;
-	} else {
-		*ret = -1;
-		return 1;
-	}
-	result_len = printf_core(&result, format_ptr, vargs - 4);
+	result_len = printf_core(&result, format_ptr, vargs);
 	if (result == NULL) {
 		return 0;
 	} else {
-		if (fputs(result, fp_use) < 0) {
-			*ret = -1;
-		} else {
+		size_t size_written;
+		if (file_write(&size_written, file_ptr_to_info(fp), result, result_len) &&
+		size_written == result_len) {
 			*ret = result_len;
+		} else {
+			*ret = -1;
 		}
 		free(result);
 		return 1;
