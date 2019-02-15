@@ -71,14 +71,15 @@ int dmem_libc_stdio_initialize(uint32_t iob_addr_in) {
 	return 1;
 }
 
-/* 出力結果の文字数(終端のNULは除く)を返す */
+/* 出力結果の文字数を返す */
+/* NUL終端は付けない */
 static uint32_t integer_to_string(char* dest, uint32_t value,
 uint32_t least_digits, uint32_t radix, const char* digits) {
 	char buffer[64];
 	char *p = buffer + (sizeof(buffer) / sizeof(*buffer));
 	uint32_t digit_cnt = 0;
+	uint32_t i;
 	/* 変換する */
-	*(--p) = '\0';
 	while (value > 0 || least_digits > 0) {
 		*(--p) = digits[value % radix];
 		value /= radix;
@@ -86,9 +87,7 @@ uint32_t least_digits, uint32_t radix, const char* digits) {
 		digit_cnt++;
 	}
 	/* 結果を書き込む */
-	do {
-		*(dest++) = *p;
-	} while (*(p++) != '\0');
+	for (i = 0; i < digit_cnt; i++) dest[i] = p[i];
 	return digit_cnt;
 }
 
@@ -234,33 +233,27 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 				case 'd': case 'i': {
 					uint32_t value;
 					int ok = 0;
-					char* dest;
 					uint32_t min_digits;
 					value = dmem_read_uint(&ok, data_addr, 4);
 					if (!ok) FAIL
 					ADVANCE_DATA_ADDR(4)
 					data_str = malloc(64);
+					data_str_len = 0;
 					if (data_str == NULL) FAIL
 					/* 符号の処理 */
 					if (value & UINT32_C(0x80000000)) {
 						/* 負 */
-						data_str_len = 1;
 						data_str[0] = '-';
-						dest = data_str + 1;
+						data_str_len = 1;
 						value = -value;
 					} else {
 						/* 正または0 */
 						if (flag_plus) {
-							data_str_len = 1;
 							data_str[0] = '+';
-							dest = data_str + 1;
-						} else if (flag_space) {
 							data_str_len = 1;
+						} else if (flag_space) {
 							data_str[0] = ' ';
-							dest = data_str + 1;
-						} else {
-							data_str_len = 0;
-							dest = data_str;
+							data_str_len = 1;
 						}
 					}
 					/* ゼロによるパディングの処理 */
@@ -271,7 +264,16 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					} else {
 						min_digits = 1; /* パディングなし */
 					}
-					data_str_len += integer_to_string(dest, value, min_digits, 10, "0123456789");
+					/* min_digitsが大きい場合用に、メモリを確保しなおす */
+					/* data_str_lenは十分小さいので、min_digitsが大きくなければ安全 */
+					if (UINT32_MAX - data_str_len < min_digits) { free(data_str); FAIL }
+					if (data_str_len + min_digits > 64) {
+						char* new_str = realloc(data_str, data_str_len + min_digits);
+						if (new_str == NULL) { free(data_str); FAIL }
+						data_str = new_str;
+					}
+					data_str_len += integer_to_string(data_str + data_str_len,
+						value, min_digits, 10, "0123456789");
 					} break;
 				case 'o': case 'u': case 'x': case 'X': {
 					uint32_t value;
@@ -321,6 +323,14 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 						min_digits = 1; /* パディングなし */
 					}
 					if (flag_sharp && *itr2 == 'o' && min_digits > 0) min_digits--;
+					/* min_digitsが大きい場合用に、メモリを確保しなおす */
+					/* data_str_lenは十分小さいので、min_digitsが大きくなければ安全 */
+					if (UINT32_MAX - data_str_len < min_digits) { free(data_str); FAIL }
+					if (data_str_len + min_digits > 64) {
+						char* new_str = realloc(data_str, data_str_len + min_digits);
+						if (new_str == NULL) { free(data_str); FAIL }
+						data_str = new_str;
+					}
 					data_str_len += integer_to_string(data_str + data_str_len,
 						value, min_digits, radix, digit_chars);
 					} break;
