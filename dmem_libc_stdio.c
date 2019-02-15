@@ -19,7 +19,8 @@ typedef struct {
 		POP_NONE,
 		POP_READ,
 		POP_WRITE,
-		POP_SEEK
+		POP_SEEK,
+		POP_FLUSH
 	} previous_operation;
 } file_info_t;
 
@@ -429,7 +430,12 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 static int fflush_core(file_info_t* info) {
 	if (info->fp == NULL) return 0;
 	if (info->can_write && info->previous_operation != POP_READ) {
-		return fflush(info->fp) == 0 ? 1 : 0;
+		if (fflush(info->fp) == 0) {
+			info->previous_operation = POP_FLUSH;
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 	/* 未定義 */
 	return 1;
@@ -437,7 +443,7 @@ static int fflush_core(file_info_t* info) {
 
 static int file_read(size_t* size_read, file_info_t* info, void* data, size_t length) {
 	size_t read_size;
-	if (info == NULL || info->fp == NULL || !info->can_read) {
+	if (info == NULL || info->fp == NULL || !info->can_read || info->previous_operation == POP_WRITE) {
 		return 0;
 	}
 	read_size = fread(data, 1, length, info->fp);
@@ -448,7 +454,7 @@ static int file_read(size_t* size_read, file_info_t* info, void* data, size_t le
 
 static int file_write(size_t* size_written, file_info_t* info, const void* data, size_t length) {
 	size_t written_size;
-	if (info == NULL || info->fp == NULL || !info->can_write) {
+	if (info == NULL || info->fp == NULL || !info->can_write || info->previous_operation == POP_READ) {
 		return 0;
 	}
 	written_size = fwrite(data, 1, length, info->fp);
