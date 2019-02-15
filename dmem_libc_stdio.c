@@ -235,22 +235,43 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					uint32_t value;
 					int ok = 0;
 					char* dest;
+					uint32_t min_digits;
 					value = dmem_read_uint(&ok, data_addr, 4);
 					if (!ok) FAIL
 					ADVANCE_DATA_ADDR(4)
 					data_str = malloc(64);
 					if (data_str == NULL) FAIL
-					dest = data_str;
+					/* 符号の処理 */
 					if (value & UINT32_C(0x80000000)) {
+						/* 負 */
 						data_str_len = 1;
 						data_str[0] = '-';
 						dest = data_str + 1;
 						value = -value;
 					} else {
-						data_str_len = 0;
-						dest = data_str;
+						/* 正または0 */
+						if (flag_plus) {
+							data_str_len = 1;
+							data_str[0] = '+';
+							dest = data_str + 1;
+						} else if (flag_space) {
+							data_str_len = 1;
+							data_str[0] = ' ';
+							dest = data_str + 1;
+						} else {
+							data_str_len = 0;
+							dest = data_str;
+						}
 					}
-					data_str_len += integer_to_string(dest, value, 0, 10, "0123456789");
+					/* ゼロによるパディングの処理 */
+					if (precision_valid) {
+						min_digits = precision;
+					} else if (flag_zero && !flag_minus) {
+						min_digits = data_str_len > min_width ? 0 : min_width - data_str_len;
+					} else {
+						min_digits = 0; /* パディングなし */
+					}
+					data_str_len += integer_to_string(dest, value, min_digits, 10, "0123456789");
 					} break;
 				case 's': {
 					uint32_t str_ptr;
