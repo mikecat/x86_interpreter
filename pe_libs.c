@@ -205,6 +205,16 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "ExitProcess") == 0) {
 		return PE_LIB_EXEC_EXIT;
+	} else if (strcmp(func_name, "SetErrorMode") == 0) {
+		/* 無視 */
+		regs[EAX] = 0;
+		return 4;
+	} else if (strcmp(func_name, "GetFileAttributesA") == 0) {
+		regs[EAX] = -1;
+		return 0;
+	} else if (strcmp(func_name, "GetLastError") == 0) {
+		regs[EAX] = 0;
+		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
