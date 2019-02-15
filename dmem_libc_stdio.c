@@ -270,9 +270,25 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					if (data_str == NULL) FAIL
 					memcpy(data_str, itr, itr2 - itr + 1);
 					data_str_len = itr2 - itr + 1;
-					/* 最後(*itr2)がNULの場合も、NULも書き込みたいので、補正は不要 */
+					/* 最後(*itr2)がNULの場合も、NULも書き込みたいので、長さの補正は不要 */
+					/* 不正な文字列はそのまま出力するので、幅の処理を無効化 */
+					min_width_valid = 0;
 					break;
 				}
+				/* 最小幅が指定され、生成した文字列の長さがそれに満たない場合、補正する */
+				if (min_width_valid && data_str_len < min_width) {
+					char* new_data_str = realloc(data_str, min_width);
+					if (new_data_str == NULL) { free(data_str); FAIL }
+					data_str = new_data_str;
+					if (flag_minus) { /* 左揃え */
+						memset(data_str + data_str_len, ' ', min_width - data_str_len);
+					} else { /* 右揃え */
+						memmove(data_str + (min_width - data_str_len), data_str, data_str_len);
+						memset(data_str, ' ', min_width - data_str_len);
+					}
+					data_str_len = min_width;
+				}
+				/* 生成した文字列を結果に加える */
 				REALLOC_RESULT(data_str_len)
 				memcpy(&result[result_len], data_str, data_str_len);
 				result_len += data_str_len;
