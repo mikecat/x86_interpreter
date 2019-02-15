@@ -334,6 +334,17 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					data_str_len += integer_to_string(data_str + data_str_len,
 						value, min_digits, radix, digit_chars);
 					} break;
+				case 'c': {
+					uint32_t value;
+					int ok = 0;
+					value = dmem_read_uint(&ok, data_addr, 4);
+					if (!ok) FAIL
+					ADVANCE_DATA_ADDR(4)
+					data_str = malloc(1);
+					if (data_str == NULL) FAIL
+					data_str[0] = (uint8_t)value;
+					data_str_len = 1;
+					} break;
 				case 's': {
 					uint32_t str_ptr;
 					int ok = 0;
