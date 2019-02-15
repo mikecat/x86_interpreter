@@ -273,6 +273,57 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					}
 					data_str_len += integer_to_string(dest, value, min_digits, 10, "0123456789");
 					} break;
+				case 'o': case 'u': case 'x': case 'X': {
+					uint32_t value;
+					int ok = 0;
+					uint32_t min_digits;
+					uint32_t radix = 0;
+					const char* digit_chars = NULL;
+					switch (*itr2) {
+					case 'o': radix = 8; digit_chars = "01234567"; break;
+					case 'u': radix = 10; digit_chars = "0123456789"; break;
+					case 'x': radix = 16; digit_chars = "0123456789abcdef"; break;
+					case 'X': radix = 16; digit_chars = "0123456789ABCDEF"; break;
+					}
+					value = dmem_read_uint(&ok, data_addr, 4);
+					if (!ok) FAIL
+					ADVANCE_DATA_ADDR(4)
+					data_str = malloc(64);
+					if (data_str == NULL) FAIL
+					/* "alternative form"の処理 */
+					data_str_len = 0;
+					if (flag_sharp) {
+						switch (*itr2) {
+						case 'o':
+							data_str[0] = '0';
+							data_str_len = 1;
+							break;
+						case 'x':
+							if (value != 0) {
+								data_str[0] = '0'; data_str[1] = 'x';
+								data_str_len = 2;
+							}
+							break;
+						case 'X':
+							if (value != 0) {
+								data_str[0] = '0'; data_str[1] = 'X';
+								data_str_len = 2;
+							}
+							break;
+						}
+					}
+					/* ゼロによるパディングの処理 */
+					if (precision_valid) {
+						min_digits = precision;
+					} else if (flag_zero && !flag_minus) {
+						min_digits = data_str_len >= min_width ? 1 : min_width - data_str_len;
+					} else {
+						min_digits = 1; /* パディングなし */
+					}
+					if (flag_sharp && *itr2 == 'o' && min_digits > 0) min_digits--;
+					data_str_len += integer_to_string(data_str + data_str_len,
+						value, min_digits, radix, digit_chars);
+					} break;
 				case 's': {
 					uint32_t str_ptr;
 					int ok = 0;
