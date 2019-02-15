@@ -777,6 +777,38 @@ int dmem_libc_fread(uint32_t* ret, uint32_t esp) {
 	return 1;
 }
 
+int dmem_libc_fwrite(uint32_t* ret, uint32_t esp) {
+	uint32_t src, elem_size, num, fp;
+	uint32_t all_size;
+	char* buffer;
+	size_t written_size;
+	if (!dmem_get_args(esp, 4, &src, &elem_size, &num, &fp)) return 0;
+	if (elem_size == 0 || num == 0) {
+		/* 何もしない */
+		*ret = 0;
+		return 1;
+	}
+	if (UINT32_MAX / elem_size < num) {
+		*ret = 0;
+		return 1;
+	}
+	all_size = elem_size * num;
+	if (!dmemory_is_allocated(src, all_size)) return 0;
+	buffer = malloc(all_size);
+	if (buffer == NULL) {
+		*ret = 0;
+		return 1;
+	}
+	dmemory_read(buffer, src, all_size);
+	if (file_write(&written_size, file_ptr_to_info(fp), buffer, all_size)) {
+		*ret = written_size / elem_size;
+	} else {
+		*ret = 0;
+	}
+	free(buffer);
+	return 1;
+}
+
 int dmem_flsbuf(uint32_t* ret, uint32_t esp) {
 	uint32_t chr, fp;
 	uint8_t chr_buffer;

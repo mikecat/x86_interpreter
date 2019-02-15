@@ -15,6 +15,7 @@ int dmem_libc_vfprintf(uint32_t* ret, uint32_t esp);
 int dmem_libc_fputs(uint32_t* ret, uint32_t esp);
 int dmem_libc_puts(uint32_t* ret, uint32_t esp);
 int dmem_libc_fread(uint32_t* ret, uint32_t esp);
+int dmem_libc_fwrite(uint32_t* ret, uint32_t esp);
 
 /* ファイルを扱う都合上、ここでやる */
 int dmem_flsbuf(uint32_t* ret, uint32_t esp);
