@@ -280,11 +280,26 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					str_ptr = dmem_read_uint(&ok, data_addr, 4);
 					if (!ok) FAIL
 					ADVANCE_DATA_ADDR(4)
-					data_str = dmem_read_string(str_ptr);
-					if (data_str == NULL) FAIL
-					str_len = strlen(data_str);
-					if (str_len > UINT32_MAX) { free(data_str); FAIL }
-					data_str_len = (uint32_t) str_len;
+					if (precision_valid) {
+						uint32_t i;
+						data_str = malloc(precision > 0 ? precision : 1);
+						if (data_str == NULL) FAIL
+						for (i = 0; i < precision; i++) {
+							uint32_t c;
+							if (UINT32_MAX - str_ptr < i) { free(data_str); FAIL }
+							c = dmem_read_uint(&ok, str_ptr + i, 1);
+							if (!ok) { free(data_str); FAIL }
+							data_str[i] = c;
+							if (c == 0) break;
+						}
+						data_str_len = i;
+					} else {
+						data_str = dmem_read_string(str_ptr);
+						if (data_str == NULL) FAIL
+						str_len = strlen(data_str);
+						if (str_len > UINT32_MAX) { free(data_str); FAIL }
+						data_str_len = (uint32_t) str_len;
+					}
 					} break;
 				default:
 					data_str = malloc(itr2 - itr + 1);
