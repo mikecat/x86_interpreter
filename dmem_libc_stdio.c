@@ -79,12 +79,12 @@ uint32_t least_digits, uint32_t radix, const char* digits) {
 	uint32_t digit_cnt = 0;
 	/* 変換する */
 	*(--p) = '\0';
-	do {
+	while (value > 0 || least_digits > 0) {
 		*(--p) = digits[value % radix];
 		value /= radix;
 		if (least_digits > 0) least_digits--;
 		digit_cnt++;
-	} while (value > 0 || least_digits > 0);
+	}
 	/* 結果を書き込む */
 	do {
 		*(dest++) = *p;
@@ -267,9 +267,9 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 					if (precision_valid) {
 						min_digits = precision;
 					} else if (flag_zero && !flag_minus) {
-						min_digits = data_str_len > min_width ? 0 : min_width - data_str_len;
+						min_digits = data_str_len >= min_width ? 1 : min_width - data_str_len;
 					} else {
-						min_digits = 0; /* パディングなし */
+						min_digits = 1; /* パディングなし */
 					}
 					data_str_len += integer_to_string(dest, value, min_digits, 10, "0123456789");
 					} break;
