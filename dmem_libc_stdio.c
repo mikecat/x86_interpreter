@@ -120,59 +120,36 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 		char* next_result;
 		if (*itr == '%') {
 			char* itr2 = itr + 1;
-			/* 変換オプション情報 */
-			int flag_minus = 0, flag_plus = 0, flag_space = 0, flag_sharp = 0, flag_zero = 0;
-			uint32_t min_width = 0, precision = 0;
-			int min_width_valid = 0, precision_valid = 0;
-			enum length_t {
-				LENGTH_NONE,
-				LENGTH_HH, LENGTH_H, LENGTH_L, LENGTH_LL,
-				LENGTH_J, LENGTH_Z, LENGTH_T, LENGTH_LARGE_L
-			} length_mod = LENGTH_NONE;
-			/* データの変換結果(精度考慮する、フィールド幅考慮しない)をdata_strに入れる */
-			/* freeするので、data_strはmalloc系で確保したものにする */
-			/* 長さはdata_str_lenで制御するので、NUL終端でなくて良い */
-			char* data_str = NULL;
-			uint32_t data_str_len = 0;
-			/* フラグ */
-			for (;;) {
-				if (*itr2 == '-') flag_minus = 1;
-				else if (*itr2 == '+') flag_plus = 1;
-				else if (*itr2 == ' ') flag_space = 1;
-				else if (*itr2 == '#') flag_sharp = 1;
-				else if (*itr2 == '0') flag_zero = 1;
-				else break;
-				itr2++;
-			}
-			/* 確保する長さ */
-			if ('0' <= *itr2 && *itr2 <= '9') {
-				uint32_t value = 0;
-				while ('0' <= *itr2 && *itr2 <= '9') {
-					if (UINT32_MAX / 10 < value) FAIL
-					value *= 10;
-					if (UINT32_MAX - (*itr2 - '0') < value) FAIL
-					value += (*itr2 - '0');
+			if (*itr2 == '%') {
+				REALLOC_RESULT(1)
+				result[result_len++] = '%';
+				itr = itr2 + 1;
+			} else {
+				/* 変換オプション情報 */
+				int flag_minus = 0, flag_plus = 0, flag_space = 0, flag_sharp = 0, flag_zero = 0;
+				uint32_t min_width = 0, precision = 0;
+				int min_width_valid = 0, precision_valid = 0;
+				enum length_t {
+					LENGTH_NONE,
+					LENGTH_HH, LENGTH_H, LENGTH_L, LENGTH_LL,
+					LENGTH_J, LENGTH_Z, LENGTH_T, LENGTH_LARGE_L
+				} length_mod = LENGTH_NONE;
+				/* データの変換結果(精度考慮する、フィールド幅考慮しない)をdata_strに入れる */
+				/* freeするので、data_strはmalloc系で確保したものにする */
+				/* 長さはdata_str_lenで制御するので、NUL終端でなくて良い */
+				char* data_str = NULL;
+				uint32_t data_str_len = 0;
+				/* フラグ */
+				for (;;) {
+					if (*itr2 == '-') flag_minus = 1;
+					else if (*itr2 == '+') flag_plus = 1;
+					else if (*itr2 == ' ') flag_space = 1;
+					else if (*itr2 == '#') flag_sharp = 1;
+					else if (*itr2 == '0') flag_zero = 1;
+					else break;
 					itr2++;
 				}
-				min_width = value;
-				min_width_valid = 1;
-			} else if (*itr2 == '*') {
-				int ok = 0;
-				uint32_t value = dmem_read_uint(&ok, data_addr, 4);
-				if (!ok) FAIL
-				ADVANCE_DATA_ADDR(4)
-				if (value & UINT32_C(0x80000000)) {
-					flag_minus = 1;
-					min_width = -value;
-				} else {
-					min_width = value;
-				}
-				min_width_valid = 1;
-				itr2++;
-			}
-			/* 精度 */
-			if (*itr2 == '.') {
-				itr2++;
+				/* 確保する長さ */
 				if ('0' <= *itr2 && *itr2 <= '9') {
 					uint32_t value = 0;
 					while ('0' <= *itr2 && *itr2 <= '9') {
@@ -182,104 +159,127 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 						value += (*itr2 - '0');
 						itr2++;
 					}
-					precision = value;
-					precision_valid = 1;
+					min_width = value;
+					min_width_valid = 1;
 				} else if (*itr2 == '*') {
 					int ok = 0;
 					uint32_t value = dmem_read_uint(&ok, data_addr, 4);
 					if (!ok) FAIL
 					ADVANCE_DATA_ADDR(4)
-					if (!(value & UINT32_C(0x80000000))) {
+					if (value & UINT32_C(0x80000000)) {
+						flag_minus = 1;
+						min_width = -value;
+					} else {
+						min_width = value;
+					}
+					min_width_valid = 1;
+					itr2++;
+				}
+				/* 精度 */
+				if (*itr2 == '.') {
+					itr2++;
+					if ('0' <= *itr2 && *itr2 <= '9') {
+						uint32_t value = 0;
+						while ('0' <= *itr2 && *itr2 <= '9') {
+							if (UINT32_MAX / 10 < value) FAIL
+							value *= 10;
+							if (UINT32_MAX - (*itr2 - '0') < value) FAIL
+							value += (*itr2 - '0');
+							itr2++;
+						}
 						precision = value;
 						precision_valid = 1;
+					} else if (*itr2 == '*') {
+						int ok = 0;
+						uint32_t value = dmem_read_uint(&ok, data_addr, 4);
+						if (!ok) FAIL
+						ADVANCE_DATA_ADDR(4)
+						if (!(value & UINT32_C(0x80000000))) {
+							precision = value;
+							precision_valid = 1;
+						}
+						itr2++;
+					} else {
+						precision = 0;
+						precision_valid = 1;
 					}
-					itr2++;
-				} else {
-					precision = 0;
-					precision_valid = 1;
 				}
-			}
-			/* データサイズ */
-			switch (*itr2) {
-			case 'h':
-				itr2++;
-				if (*itr2 == 'h') {
-					length_mod = LENGTH_HH;
+				/* データサイズ */
+				switch (*itr2) {
+				case 'h':
 					itr2++;
-				} else {
-					length_mod = LENGTH_H;
-				}
-				break;
-			case 'l':
-				itr2++;
-				if (*itr2 == 'l') {
-					length_mod = LENGTH_LL;
+					if (*itr2 == 'h') {
+						length_mod = LENGTH_HH;
+						itr2++;
+					} else {
+						length_mod = LENGTH_H;
+					}
+					break;
+				case 'l':
 					itr2++;
-				} else {
-					length_mod = LENGTH_L;
+					if (*itr2 == 'l') {
+						length_mod = LENGTH_LL;
+						itr2++;
+					} else {
+						length_mod = LENGTH_L;
+					}
+					break;
+				case 'j': itr2++; length_mod = LENGTH_J; break;
+				case 'z': itr2++; length_mod = LENGTH_Z; break;
+				case 't': itr2++; length_mod = LENGTH_T; break;
+				case 'L': itr2++; length_mod = LENGTH_LARGE_L; break;
 				}
-				break;
-			case 'j': itr2++; length_mod = LENGTH_J; break;
-			case 'z': itr2++; length_mod = LENGTH_Z; break;
-			case 't': itr2++; length_mod = LENGTH_T; break;
-			case 'L': itr2++; length_mod = LENGTH_LARGE_L; break;
-			}
-			/* 変換指定 */
-			switch (*itr2) {
-			case 'd': case 'i': {
-				uint32_t value;
-				int ok = 0;
-				char* dest;
-				value = dmem_read_uint(&ok, data_addr, 4);
-				if (!ok) FAIL
-				ADVANCE_DATA_ADDR(4)
-				data_str = malloc(64);
-				if (data_str == NULL) FAIL
-				dest = data_str;
-				if (value & UINT32_C(0x80000000)) {
-					data_str_len = 1;
-					data_str[0] = '-';
-					dest = data_str + 1;
-					value = -value;
-				} else {
-					data_str_len = 0;
+				/* 変換指定 */
+				switch (*itr2) {
+				case 'd': case 'i': {
+					uint32_t value;
+					int ok = 0;
+					char* dest;
+					value = dmem_read_uint(&ok, data_addr, 4);
+					if (!ok) FAIL
+					ADVANCE_DATA_ADDR(4)
+					data_str = malloc(64);
+					if (data_str == NULL) FAIL
 					dest = data_str;
+					if (value & UINT32_C(0x80000000)) {
+						data_str_len = 1;
+						data_str[0] = '-';
+						dest = data_str + 1;
+						value = -value;
+					} else {
+						data_str_len = 0;
+						dest = data_str;
+					}
+					data_str_len += integer_to_string(dest, value, 0, 10, "0123456789");
+					} break;
+				case 's': {
+					uint32_t str_ptr;
+					int ok = 0;
+					size_t str_len;
+					str_ptr = dmem_read_uint(&ok, data_addr, 4);
+					if (!ok) FAIL
+					ADVANCE_DATA_ADDR(4)
+					data_str = dmem_read_string(str_ptr);
+					if (data_str == NULL) FAIL
+					str_len = strlen(data_str);
+					if (str_len > UINT32_MAX) { free(data_str); FAIL }
+					data_str_len = (uint32_t) str_len;
+					} break;
+				default:
+					data_str = malloc(itr2 - itr + 1);
+					if (data_str == NULL) FAIL
+					memcpy(data_str, itr, itr2 - itr + 1);
+					data_str_len = itr2 - itr + 1;
+					/* 最後(*itr2)がNULの場合も、NULも書き込みたいので、補正は不要 */
+					break;
 				}
-				data_str_len += integer_to_string(dest, value, 0, 10, "0123456789");
-				} break;
-			case 's': {
-				uint32_t str_ptr;
-				int ok = 0;
-				size_t str_len;
-				str_ptr = dmem_read_uint(&ok, data_addr, 4);
-				if (!ok) FAIL
-				ADVANCE_DATA_ADDR(4)
-				data_str = dmem_read_string(str_ptr);
-				if (data_str == NULL) FAIL
-				str_len = strlen(data_str);
-				if (str_len > UINT32_MAX) { free(data_str); FAIL }
-				data_str_len = (uint32_t) str_len;
-				} break;
-			case '%':
-				data_str = malloc(1);
-				if (data_str == NULL) FAIL
-				data_str[0] = '%';
-				data_str_len = 1;
-				break;
-			default:
-				data_str = malloc(itr2 - itr + 1);
-				if (data_str == NULL) FAIL
-				memcpy(data_str, itr, itr2 - itr + 1);
-				data_str_len = itr2 - itr + 1;
-				/* 最後(*itr2)がNULの場合も、NULも書き込みたいので、補正は不要 */
-				break;
+				REALLOC_RESULT(data_str_len)
+				memcpy(&result[result_len], data_str, data_str_len);
+				result_len += data_str_len;
+				free(data_str);
+				if (*itr2 == '\0') break;
+				itr = itr2 + 1;
 			}
-			REALLOC_RESULT(data_str_len)
-			memcpy(&result[result_len], data_str, data_str_len);
-			result_len += data_str_len;
-			free(data_str);
-			if (*itr2 == '\0') break;
-			itr = itr2 + 1;
 		} else {
 			char* itr2 = itr;
 			while (*itr2 != '%' && *itr2 != '\0') itr2++;
