@@ -831,3 +831,19 @@ int dmem_flsbuf(uint32_t* ret, uint32_t esp) {
 	}
 	return 1;
 }
+
+int dmem_filbuf(uint32_t* ret, uint32_t esp) {
+	uint32_t fp;
+	uint8_t chr_buffer;
+	size_t size_read;
+	if (!dmem_get_args(esp, 1, &fp)) return 0;
+
+	/* TODO: バッファの処理? */
+
+	if (file_read(&size_read, file_ptr_to_info(fp), &chr_buffer, 1) && size_read == 1) {
+		*ret = chr_buffer;
+	} else {
+		*ret = -1; /* getc失敗 */
+	}
+	return 1;
+}

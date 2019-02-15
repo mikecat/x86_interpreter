@@ -192,6 +192,13 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 	} else if (strcmp(func_name, "_get_osfhandle") == 0) {
 		regs[EAX] = -1;
 		return 0;
+	} else if (strcmp(func_name, "_filbuf") == 0) {
+		if (dmem_filbuf(&regs[EAX], regs[ESP])) {
+			return 0;
+		} else {
+			fprintf(stderr, "failure in executing _filbuf() in msvcrt.dll\n");
+			return PE_LIB_EXEC_FAILED;
+		}
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
