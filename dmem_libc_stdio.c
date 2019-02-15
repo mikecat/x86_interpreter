@@ -134,12 +134,23 @@ static uint32_t printf_core(char** ret, uint32_t format_ptr, uint32_t data_ptr) 
 			case 'd': case 'i': {
 				uint32_t value;
 				int ok = 0;
+				char* dest;
 				value = dmem_read_uint(&ok, data_addr, 4);
 				if (!ok) FAIL
 				ADVANCE_DATA_ADDR(4)
 				data_str = malloc(64);
 				if (data_str == NULL) FAIL
-				data_str_len = integer_to_string(data_str, value, 0, 10, "0123456789");
+				dest = data_str;
+				if (value & UINT32_C(0x80000000)) {
+					data_str_len = 1;
+					data_str[0] = '-';
+					dest = data_str + 1;
+					value = -value;
+				} else {
+					data_str_len = 0;
+					dest = data_str;
+				}
+				data_str_len += integer_to_string(dest, value, 0, 10, "0123456789");
 				} break;
 			case 's': {
 				uint32_t str_ptr;
