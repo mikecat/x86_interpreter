@@ -271,7 +271,14 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 		regs[EAX] = 0;
 		return 0;
 	} else if (strcmp(func_name, "QueryPerformanceCounter") == 0) {
-		regs[EAX] = 0; /* 失敗 */
+		uint32_t outptr;
+		if (!dmem_get_args(regs[ESP], 1, &outptr) || !dmemory_is_allocated(outptr, 8)) {
+			regs[EAX] = 0; /* 失敗 */
+		} else {
+			dmem_write_uint(outptr, 0, 4);
+			dmem_write_uint(outptr + 4, 0, 4);
+			regs[EAX] = 1;
+		}
 		return 4;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
