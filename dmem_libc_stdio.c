@@ -847,3 +847,30 @@ int dmem_filbuf(uint32_t* ret, uint32_t esp) {
 	}
 	return 1;
 }
+
+int dmem_read(uint32_t* ret, uint32_t esp) {
+	uint32_t fd, buf_ptr, size;
+	char* buffer;
+	size_t size_read;
+	if (!dmem_get_args(esp, 3, &fd, &buf_ptr, &size)) return 0;
+
+	if (buf_ptr == 0 || (size & UINT32_C(0x80000000)) != 0 ||
+	fd >= IOB_SIZE || file_info[fd].fp == NULL ||
+	!dmemory_is_allocated(buf_ptr, size)) {
+		*ret = -1;
+		return 1;
+	}
+	buffer = malloc(size);
+	if (buffer == NULL) {
+		*ret = -1;
+		return 1;
+	}
+	if (file_read(&size_read, &file_info[fd], buffer, size)) {
+		dmemory_write(buffer, buf_ptr, size_read);
+		*ret = size_read;
+	} else {
+		*ret = -1;
+	}
+	free(buffer);
+	return 1;
+}
