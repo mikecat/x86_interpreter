@@ -261,6 +261,18 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 			dmem_write_uint(ptr + 4, (uint32_t)(result >> 32), 4);
 		}
 		return 0;
+	} else if (strcmp(func_name, "GetCurrentProcessId") == 0) {
+		regs[EAX] = 1;
+		return 0;
+	} else if (strcmp(func_name, "GetCurrentThreadId") == 0) {
+		regs[EAX] = 1;
+		return 0;
+	} else if (strcmp(func_name, "GetTickCount") == 0) {
+		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "QueryPerformanceCounter") == 0) {
+		regs[EAX] = 0; /* 失敗 */
+		return 4;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
