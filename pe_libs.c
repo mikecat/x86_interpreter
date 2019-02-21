@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <ctype.h>
 #include <inttypes.h>
 #include "dynamic_memory.h"
@@ -231,6 +232,34 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "GetLastError") == 0) {
 		regs[EAX] = 0;
+		return 0;
+	} else if (strcmp(func_name, "GetSystemTimeAsFileTime") == 0) {
+		uint32_t ptr;
+		if (dmem_get_args(regs[ESP], 1, &ptr) && dmemory_is_allocated(ptr, 8)) {
+			time_t time_raw;
+			struct tm *time_data;
+			int year, uruu_num;
+			uint64_t result;
+			time_raw = time(NULL);
+			time_data = gmtime(&time_raw);
+			year = time_data->tm_year + 1900;
+			/* 1601年からyear年の前年までの閏年の数を計算する */
+			/* 388は1年から1600年における閏年の数 */
+			uruu_num = ((year - 1) / 4) - ((year - 1) / 100) + ((year - 1) / 400) - 388;
+			/* 1601年1月1日からyear年1月1日の日数を計算する */
+			result = 365 * (year - 1601) + uruu_num;
+			/* year年1月1日から今日までの日数を足す */
+			result += time_data->tm_yday;
+			/* それを秒数に変換する */
+			result *= UINT64_C(60) * 60 * 24;
+			/* 今日の0時から現在時刻までの秒数を足す */
+			result += 60 * ((UINT64_C(60) * time_data->tm_hour) + time_data->tm_min) + time_data->tm_sec;
+			/* 秒数を「100ナノ秒」数に変換する */
+			result *= UINT64_C(10000000);
+			/* 結果を書き込む */
+			dmem_write_uint(ptr, (uint32_t)result, 4);
+			dmem_write_uint(ptr + 4, (uint32_t)(result >> 32), 4);
+		}
 		return 0;
 	} else {
 		fprintf(stderr, "unimplemented function %s() in kernel32.dll called.\n", func_name);
