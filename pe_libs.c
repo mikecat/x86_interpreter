@@ -229,7 +229,7 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 		return 4;
 	} else if (strcmp(func_name, "GetFileAttributesA") == 0) {
 		regs[EAX] = -1;
-		return 0;
+		return 4;
 	} else if (strcmp(func_name, "GetLastError") == 0) {
 		regs[EAX] = 0;
 		return 0;
@@ -260,7 +260,7 @@ static uint32_t exec_kernel32(uint32_t regs[], const char* func_name) {
 			dmem_write_uint(ptr, (uint32_t)result, 4);
 			dmem_write_uint(ptr + 4, (uint32_t)(result >> 32), 4);
 		}
-		return 0;
+		return 4;
 	} else if (strcmp(func_name, "GetCurrentProcessId") == 0) {
 		regs[EAX] = 1;
 		return 0;
