@@ -17,6 +17,8 @@ int dmem_libc_localtime(uint32_t* ret, uint32_t esp) {
 	uint32_t time_addr;
 	uint32_t time_val;
 	int ok;
+	uint64_t time_left;
+	uint32_t wday, year, yday, month, mday;
 	if (!dmem_get_args(esp, 1, &time_addr)) return 0;
 
 	time_val = dmem_read_uint(&ok, time_addr, 4);
@@ -25,14 +27,64 @@ int dmem_libc_localtime(uint32_t* ret, uint32_t esp) {
 		return 1;
 	}
 
-	dmem_write_uint(LOCALTIME_TM + 0, 0, 4); /* tm_sec */
-	dmem_write_uint(LOCALTIME_TM + 4, 34, 4); /* tm_min */
-	dmem_write_uint(LOCALTIME_TM + 8, 3, 4); /* tm_hour */
-	dmem_write_uint(LOCALTIME_TM + 12, 1, 4); /* tm_mday */
-	dmem_write_uint(LOCALTIME_TM + 16, 0, 4); /* tm_mon */
-	dmem_write_uint(LOCALTIME_TM + 20, 100, 4); /* tm_year */
-	dmem_write_uint(LOCALTIME_TM + 24, 0, 4); /* tm_wday */
-	dmem_write_uint(LOCALTIME_TM + 28, 0, 4); /* tm_yday */
+	/* UTC → JST */
+	time_left = time_val + UINT64_C(9) * 60 * 60;
+	/* 曜日を求める (1970年1月1日は木曜日) */
+	wday = (4 + time_left / (UINT32_C(24) * 60 * 60)) % 7;
+	/* 線形探索で年を求める */
+	year = 1970;
+	for (;;) {
+		uint32_t year_days = 365;
+		uint32_t year_seconds;
+		if (year % 4 == 0 && (year % 400 == 0 || year % 100 != 0)) {
+			year_days++; /* うるう年 */
+		}
+		year_seconds = year_days * 24 * 60 * 60;
+		if (time_left >= year_seconds) {
+			time_left -= year_seconds;
+			year++;
+		} else {
+			break;
+		}
+	}
+	yday = time_left / (UINT32_C(24) * 60 * 60);
+	/* 線形探索で月を求める */
+	month = 0;
+	for (;;) {
+		uint32_t month_days, month_seconds;
+		switch (month) {
+		case 1: /* 2月 */
+			if (year % 4 == 0 && (year % 400 == 0 || year % 100 != 0)) {
+				month_days = 29; /* うるう年 */
+			} else {
+				month_days = 28;
+			}
+			break;
+		case 3: case 5: case 8: case 10: /* 4,6,9,11月 */
+			month_days = 30;
+			break;
+		default:
+			month_days = 31;
+			break;
+		}
+		month_seconds = month_days * 24 * 60 * 60;
+		if (time_left >= month_seconds) {
+			time_left -= month_seconds;
+			month++;
+		} else {
+			break;
+		}
+	}
+	mday = time_left / (UINT32_C(24) * 60 * 60) + 1;
+
+	dmem_write_uint(LOCALTIME_TM + 0, time_left % 60, 4); /* tm_sec */
+	dmem_write_uint(LOCALTIME_TM + 4, (time_left / 60) % 60, 4); /* tm_min */
+	dmem_write_uint(LOCALTIME_TM + 8, (time_left / (60 * 60)) % 24, 4); /* tm_hour */
+	dmem_write_uint(LOCALTIME_TM + 12, mday, 4); /* tm_mday */
+	dmem_write_uint(LOCALTIME_TM + 16, month, 4); /* tm_mon */
+	dmem_write_uint(LOCALTIME_TM + 20, year - 1900, 4); /* tm_year */
+	dmem_write_uint(LOCALTIME_TM + 24, wday, 4); /* tm_wday */
+	dmem_write_uint(LOCALTIME_TM + 28, yday, 4); /* tm_yday */
 	dmem_write_uint(LOCALTIME_TM + 32, 0, 4); /* tm_isdst */
 
 	*ret = LOCALTIME_TM;
