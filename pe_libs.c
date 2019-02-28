@@ -19,9 +19,15 @@ static uint32_t argc_value, argv_value;
 #define WORK_PNAME (work_origin + UINT32_C(0x0000000c))
 #define WORK_FMODE (work_origin + UINT32_C(0x00000010))
 #define WORK_ERRNO (work_origin + UINT32_C(0x00000014))
+#define WORK_DAYLIGHT (work_origin + UINT32_C(0x00000018))
+#define WORK_TIMEZONE (work_origin + UINT32_C(0x00000018))
+#define WORK_TZNAME (work_origin + UINT32_C(0x0000001C)) /* 8バイト (4バイト×2) */
+#define WORK_TZNAME0 (work_origin + UINT32_C(0x00000020))
+#define WORK_TZNAME1 (work_origin + UINT32_C(0x00000024))
 #define WORK_IOB (work_origin + UINT32_C(0x00001000))
-#define WORK_HEAP_START (work_origin + UINT32_C(0x00002000))
-#define WORK_SIZE UINT32_C(0x00002000)
+#define WORK_LIBC_TIME_DATA (work_origin + UINT32_C(0x00002000))
+#define WORK_HEAP_START (work_origin + UINT32_C(0x00003000))
+#define WORK_SIZE UINT32_C(0x00003000)
 
 enum {
 	LIB_ID_UNKNOWN,
@@ -60,10 +66,17 @@ int pe_libs_initialize(uint32_t work_start, uint32_t argc, uint32_t argv) {
 	dmemory_write("x\0\0\0", WORK_PNAME, 4);
 	dmem_write_uint(WORK_FMODE, 0x00004000, 4); /* O_TEXT */
 	dmem_write_uint(WORK_ERRNO, 0, 4);
+	dmem_write_uint(WORK_DAYLIGHT, 0, 4);
+	dmem_write_uint(WORK_TIMEZONE, -UINT32_C(9) * 60 * 60, 4);
+	dmem_write_uint(WORK_TZNAME, WORK_TZNAME0, 4);
+	dmem_write_uint(WORK_TZNAME + 4, WORK_TZNAME1, 4);
+	dmemory_write("JST\0", WORK_TZNAME0, 4);
+	dmemory_write("\0\0\0\0", WORK_TZNAME1, 4);
 
 	if (!dmem_libc_stdio_initialize(WORK_IOB)) return 0;
 	if (!dmem_libc_stdlib_initialize(WORK_HEAP_START)) return 0;
 	if (!dmem_libc_string_initialize()) return 0;
+	if (!dmem_libc_time_initialize(WORK_LIBC_TIME_DATA)) return 0;
 	return 1;
 }
 
@@ -78,6 +91,12 @@ uint32_t get_buffer_address(int lib_id, const char* identifier, uint32_t default
 	case LIB_ID_MSVCRT:
 		if (strcmp(identifier, "_iob") == 0) {
 			return WORK_IOB;
+		} else if (strcmp(identifier, "_daylight") == 0) {
+			return WORK_DAYLIGHT;
+		} else if (strcmp(identifier, "_timezone") == 0) {
+			return WORK_TIMEZONE;
+		} else if (strcmp(identifier, "_tzname") == 0) {
+			return WORK_TZNAME;
 		}
 		break;
 	}
@@ -207,6 +226,13 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 			fprintf(stderr, "failure in executing _read() in msvcrt.dll\n");
 			return PE_LIB_EXEC_FAILED;
 		}
+	} else if (strcmp(func_name, "localtime") == 0) {
+		CALL_DMEM_LIBC(localtime)
+	} else if (strcmp(func_name, "_tzset") == 0) {
+		/* 無視 */
+		return 0;
+	} else if (strcmp(func_name, "strftime") == 0) {
+		CALL_DMEM_LIBC(strftime)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;

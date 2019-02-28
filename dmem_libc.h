@@ -4,5 +4,6 @@
 #include "dmem_libc_stdio.h"
 #include "dmem_libc_stdlib.h"
 #include "dmem_libc_string.h"
+#include "dmem_libc_time.h"
 
 #endif
