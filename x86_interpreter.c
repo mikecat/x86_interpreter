@@ -16,6 +16,7 @@ static pe_import_params import_params;
 uint32_t regs[8];
 uint32_t eip;
 uint32_t eflags;
+uint32_t segment_offsets[6];
 
 void print_regs(FILE* fp) {
 	fprintf(fp, "   EAX:%08"PRIx32" EBX:%08"PRIx32" ECX:%08"PRIx32" EDX:%08"PRIx32"\n",
@@ -40,11 +41,16 @@ int memory_access(uint8_t* data_read, uint32_t addr, uint8_t data, int we) {
 	}
 }
 
-static uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, int size) {
+static uint32_t step_memread(int* success, uint32_t inst_addr, int segment, uint32_t addr, int size) {
 	uint32_t res = 0;
 	int i;
+	if (UINT32_MAX - segment_offsets[segment] < addr ||
+	(size <= 0 || UINT32_MAX - (segment_offsets[segment] + addr) < (uint32_t)(size - 1))) {
+		*success = 0;
+		return 0;
+	}
 	for (i = 0; i < size; i++) {
-		uint32_t this_addr = addr + i;
+		uint32_t this_addr = segment_offsets[segment] + addr + i;
 		uint8_t value;
 		if (!memory_access(&value, this_addr, 0, 0)) {
 			fprintf(stderr, "failed to read memory %08"PRIx32" at %08"PRIx32"\n\n", this_addr, inst_addr);
@@ -65,10 +71,14 @@ static uint32_t step_memread(int* success, uint32_t inst_addr, uint32_t addr, in
 	return res;
 }
 
-static int step_memwrite(uint32_t inst_addr, uint32_t addr, uint32_t value, int size) {
+static int step_memwrite(uint32_t inst_addr, int segment, uint32_t addr, uint32_t value, int size) {
 	int i;
+	if (UINT32_MAX - segment_offsets[segment] < addr ||
+	(size <= 0 || UINT32_MAX - (segment_offsets[segment] + addr) < (uint32_t)(size - 1))) {
+		return 0;
+	}
 	for (i = 0; i < size; i++) {
-		uint32_t this_addr = addr + i;
+		uint32_t this_addr = segment_offsets[segment] + addr + i;
 		uint8_t dummy_read;
 		if (!memory_access(&dummy_read, this_addr, (value >> (i * 8)) & 0xff, 1)) {
 			fprintf(stderr, "failed to write memory %08"PRIx32" at %08"PRIx32"\n\n", this_addr, inst_addr);
@@ -83,7 +93,7 @@ static int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_ad
 	uint32_t addr = regs[ESP];
 	if (is_addr_16bit) addr &= 0xffff;
 	addr -= op_width;
-	if (!step_memwrite(inst_addr, addr, value, op_width)) return 0;
+	if (!step_memwrite(inst_addr, SS, addr, value, op_width)) return 0;
 	if (is_addr_16bit) {
 		regs[ESP] = (regs[ESP] & UINT32_C(0xffff0000)) | (addr & 0xffff);
 	} else {
@@ -95,7 +105,7 @@ static int step_push(uint32_t inst_addr, uint32_t value, int op_width, int is_ad
 static uint32_t step_pop(int* success, uint32_t inst_addr, int op_width, int is_addr_16bit) {
 	int memread_ok = 0;
 	uint32_t next_esp;
-	uint32_t value = step_memread(&memread_ok, inst_addr,
+	uint32_t value = step_memread(&memread_ok, inst_addr, SS,
 		is_addr_16bit ? regs[ESP] & 0xffff : regs[ESP], op_width);
 	if (!memread_ok) {
 		*success = 0;
@@ -215,6 +225,8 @@ int step(void) {
 	int dest_reg_index = 0;
 	int need_dest_value = 0;
 
+	int data_segment = DS;
+
 	uint32_t imm_value = 0; /* 即値の値 */
 
 	if (use_pe_import && import_params.iat_size >= 4 &&
@@ -231,18 +243,25 @@ int step(void) {
 	/* プリフィックスを解析する */
 	for(;;) {
 		/* 命令フェッチ */
-		fetch_data = step_memread(&memread_ok, inst_addr, eip, 1);
+		fetch_data = step_memread(&memread_ok, inst_addr, CS, eip, 1);
 		if (!memread_ok) return 0;
 		eip++;
 		/* プリフィックスか判定 */
-		if (fetch_data == 0x26 || /* ES override */
-		fetch_data == 0x2E || /* CS override */
-		fetch_data == 0x36 || /* SS override */
-		fetch_data == 0x3E || /* DS override */
-		fetch_data == 0x64 || /* FS override */
-		fetch_data == 0x65 || /* GS override */
-		fetch_data == 0x9B || /* wait */
-		fetch_data == 0xF0 ) { /* lock */
+		if (fetch_data == 0x26) { /* ES override */
+			data_segment = ES;
+		} else if (fetch_data == 0x2E) { /* CS override */
+			data_segment = CS;
+		} else if (fetch_data == 0x36) { /* SS override */
+			data_segment = SS;
+		} else if (fetch_data == 0x3E) { /* DS override */
+			data_segment = DS;
+		} else if (fetch_data == 0x64) { /* FS override */
+			data_segment = FS;
+		} else if (fetch_data == 0x65) { /* GS override */
+			data_segment = GS;
+		} else if (fetch_data == 0x9B) { /* wait */
+			/* 無視 */
+		} else if (fetch_data == 0xF0) { /* lock */
 			/* 無視 */
 		} else if (fetch_data == 0x66) { /* operand-size override */
 			is_data_16bit = 1;
@@ -274,7 +293,7 @@ int step(void) {
 
 	/* オペコードを解析する */
 	if (fetch_data == 0x0F) {
-		fetch_data = step_memread(&memread_ok, inst_addr, eip, 1);
+		fetch_data = step_memread(&memread_ok, inst_addr, CS, eip, 1);
 		if (!memread_ok) return 0;
 		eip++;
 		if ((fetch_data & 0xF0) == 0x80) {
@@ -763,7 +782,7 @@ int step(void) {
 	int modrm_is_mem = 0; /* mod r/m中のmod r/mがメモリか */
 
 	if (use_mod_rm) {
-		uint8_t mod_rm = step_memread(&memread_ok, inst_addr, eip, 1);
+		uint8_t mod_rm = step_memread(&memread_ok, inst_addr, CS, eip, 1);
 		if (!memread_ok) return 0;
 		eip++;
 
@@ -918,7 +937,7 @@ int step(void) {
 
 	/* SIBを解析する */
 	if (use_sib) {
-		uint8_t sib = step_memread(&memread_ok, inst_addr, eip, 1);
+		uint8_t sib = step_memread(&memread_ok, inst_addr, CS, eip, 1);
 		if (!memread_ok) return 0;
 		eip++;
 
@@ -946,7 +965,7 @@ int step(void) {
 	uint32_t disp = 0;
 	if (!use_mod_rm) disp_size = direct_disp_size;
 	if (disp_size > 0) {
-		disp = step_memread(&memread_ok, inst_addr, eip, disp_size);
+		disp = step_memread(&memread_ok, inst_addr, CS, eip, disp_size);
 		if (!memread_ok) return 0;
 		eip += disp_size;
 	}
@@ -1010,7 +1029,7 @@ int step(void) {
 	/* 即値を解析する */
 	if (use_imm) {
 		int imm_size = one_byte_imm ? 1 : op_width;
-		imm_value = step_memread(&memread_ok, inst_addr, eip, imm_size);
+		imm_value = step_memread(&memread_ok, inst_addr, CS, eip, imm_size);
 		if (!memread_ok) return 0;
 		eip += imm_size;
 	}
@@ -1027,7 +1046,7 @@ int step(void) {
 		if (op_kind == OP_LEA) {
 			src_value = src_addr;
 		} else {
-			src_value = step_memread(&memread_ok, inst_addr, src_addr, op_width);
+			src_value = step_memread(&memread_ok, inst_addr, data_segment, src_addr, op_width);
 			if (!memread_ok) return 0;
 		}
 		break;
@@ -1052,7 +1071,7 @@ int step(void) {
 			dest_value = imm_value;
 			break;
 		case OP_KIND_MEM:
-			dest_value = step_memread(&memread_ok, inst_addr, dest_addr, op_width);
+			dest_value = step_memread(&memread_ok, inst_addr, data_segment, dest_addr, op_width);
 			if (!memread_ok) return 0;
 			break;
 		case OP_KIND_REG:
@@ -1252,7 +1271,7 @@ int step(void) {
 			print_regs(stderr);
 			return 0;
 		case OP_KIND_MEM:
-			if (!step_memwrite(inst_addr, src_addr, dest_value, op_width)) return 0;
+			if (!step_memwrite(inst_addr, data_segment, src_addr, dest_value, op_width)) return 0;
 			break;
 		case OP_KIND_REG:
 			{
@@ -1477,26 +1496,26 @@ int step(void) {
 				uint32_t s =0 , d = 0;
 				switch (op_string_kind) {
 				case OP_STR_MOV:
-					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					s = step_memread(&memread_ok, inst_addr, DS, esi_addr, op_width);
 					if (!memread_ok) return 0;
-					if (!step_memwrite(inst_addr, edi_addr, s, op_width)) return 0;
+					if (!step_memwrite(inst_addr, ES, edi_addr, s, op_width)) return 0;
 					break;
 				case OP_STR_CMP:
-					s = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					s = step_memread(&memread_ok, inst_addr, DS, esi_addr, op_width);
 					if (!memread_ok) return 0;
-					d = step_memread(&memread_ok, inst_addr, edi_addr, op_width);
+					d = step_memread(&memread_ok, inst_addr, ES, edi_addr, op_width);
 					if (!memread_ok) return 0;
 					break;
 				case OP_STR_STO:
-					if (!step_memwrite(inst_addr, edi_addr, src_value, op_width)) return 0;
+					if (!step_memwrite(inst_addr, ES, edi_addr, src_value, op_width)) return 0;
 					break;
 				case OP_STR_LOD:
-					result = step_memread(&memread_ok, inst_addr, esi_addr, op_width);
+					result = step_memread(&memread_ok, inst_addr, DS, esi_addr, op_width);
 					if (!memread_ok) return 0;
 					break;
 				case OP_STR_SCA:
 					s = src_value;
-					d = step_memread(&memread_ok, inst_addr, edi_addr, op_width);
+					d = step_memread(&memread_ok, inst_addr, ES, edi_addr, op_width);
 					if (!memread_ok) return 0;
 					break;
 				/*
@@ -1678,7 +1697,7 @@ int step(void) {
 			print_regs(stderr);
 			return 0;
 		case OP_KIND_MEM:
-			if (!step_memwrite(inst_addr, dest_addr, result, op_width)) return 0;
+			if (!step_memwrite(inst_addr, data_segment, dest_addr, result, op_width)) return 0;
 			break;
 		case OP_KIND_REG:
 			{
