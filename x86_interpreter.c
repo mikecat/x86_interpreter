@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "x86_regs.h"
 #include "dynamic_memory.h"
+#include "dmem_utils.h"
 #include "read_raw.h"
 #include "read_elf.h"
 #include "read_pe.h"
@@ -1764,11 +1765,13 @@ int main(int argc, char *argv[]) {
 	int enable_trace = 0;
 	int enable_args = 0;
 	int import_as_iat = 0;
+	int enable_fs = 0;
 	uint32_t initial_eip = 0;
 	uint32_t initial_esp = UINT32_C(0xfffff000);
 	uint32_t stack_size = 4096;
 	uint32_t xv6_syscall_work = UINT32_C(0x80000000);
 	uint32_t pe_import_work = UINT32_C(0x80000000);
+	uint32_t fs_addr = UINT32_C(0x7ffff000);
 	uint32_t argc2 = 0, argv_addr = 0;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--raw") == 0) {
@@ -1825,6 +1828,14 @@ int main(int argc, char *argv[]) {
 			} else { fprintf(stderr, "no work buffer origin for --pe-import\n"); return 1;}
 		} else if (strcmp(argv[i], "--pe-import-as-iat") == 0) {
 			import_as_iat = 1;
+		} else if (strcmp(argv[i], "--pe-fs") == 0) {
+			enable_fs = 1;
+			if (++i < argc) {
+				if (!str_to_uint32(&fs_addr, argv[i])) {
+					fprintf(stderr, "invalid FS buffer origin %s\n", argv[i]);
+					return 1;
+				}
+			} else { fprintf(stderr, "no FS buffer origin for --pe-fs\n"); return 1;}
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
@@ -1891,6 +1902,17 @@ int main(int argc, char *argv[]) {
 	}
 	if (use_pe_import) {
 		if (!pe_import_initialize(&import_params, pe_import_work, argc2, argv_addr)) return 1;
+	}
+	if (enable_fs) {
+		if (UINT32_MAX - 0x1000  + 1 < fs_addr) {
+			fprintf(stderr, "FS buffer address too high!\n");
+			return 1;
+		}
+		segment_offsets[FS] = fs_addr;
+		dmemory_allocate(fs_addr, 0x1000);
+		dmem_write_uint(fs_addr + 0x004, initial_esp, 4);
+		dmem_write_uint(fs_addr + 0x008, initial_esp - stack_size, 4);
+		dmem_write_uint(fs_addr + 0x018, fs_addr, 4);
 	}
 
 	if (enable_trace) {
