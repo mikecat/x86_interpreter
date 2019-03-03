@@ -137,6 +137,7 @@ int step(void) {
 		OP_ARITHMETIC,
 		OP_SHIFT,
 		OP_XCHG,
+		OP_CMPXCHG,
 		OP_MOV,
 		OP_CMOV,
 		OP_MOVZX,
@@ -343,6 +344,18 @@ int step(void) {
 			use_mod_rm = 1;
 			is_dest_reg = 1;
 			imul_enable_dest = 1;
+			need_dest_value = 1;
+		} else if ((fetch_data & 0xFE) == 0xB0) {
+			/* CMPXCHG */
+			if (strict_mode) {
+				fprintf(stderr, "CMPXCHG instruction, not in 80386, detected at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			op_kind = OP_CMPXCHG;
+			op_width = (fetch_data & 0x01) ? (is_data_16bit ? 2 : 4) : 1;
+			use_mod_rm = 1;
+			is_dest_reg = 0;
 			need_dest_value = 1;
 		} else if ((fetch_data & 0xFE) == 0xB6) {
 			/* MOVZX */
@@ -1302,6 +1315,20 @@ int step(void) {
 			}
 			regs[src_reg_index] = (regs[src_reg_index] & UINT32_C(0xffff00ff)) | ((dest_value & 0xff) << 8);
 			break;
+		}
+		break;
+	case OP_CMPXCHG:
+		{
+			uint32_t mask = op_width >= 4 ? UINT32_C(0xffffffff) : (UINT32_C(0xffffffff) >> (8 * (4 - op_width)));
+			if ((dest_value & mask) == (regs[EAX] & mask)) {
+				eflags |= ZF;
+				result = src_value;
+			} else {
+				eflags &= ~ZF;
+				regs[EAX] = (regs[EAX] & ~mask) | (dest_value & mask);
+				result = dest_value;
+			}
+			result_write = 1;
 		}
 		break;
 	case OP_MOV:
