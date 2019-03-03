@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "dmem_libc_stdlib.h"
 #include "dynamic_memory.h"
@@ -99,6 +100,30 @@ static int free_core(uint32_t addr_to_free) {
 	}
 	/* 該当の領域が見つからなかった */
 	return 0;
+}
+
+int dmem_libc_calloc(uint32_t* ret, uint32_t esp) {
+	uint32_t num, elem_size;
+	if (!dmem_get_args(esp, 2, &num, &elem_size)) return 0;
+	if (num > 0 && UINT32_MAX / num < elem_size) {
+		*ret = 0;
+	} else {
+		size_t size = elem_size * num;
+		char* buf = malloc(size);
+		*ret = malloc_core(size);
+		if (buf != NULL) {
+			memset(buf, 0, size);
+			dmemory_write(buf, *ret, size);
+			free(buf);
+		} else {
+			size_t i;
+			uint8_t cbuf = 0;
+			for (i = 0; i < size; i++) {
+				dmemory_write(&cbuf, (*ret) + i, 1);
+			}
+		}
+	}
+	return 1;
 }
 
 int dmem_libc_free(uint32_t* ret, uint32_t esp) {

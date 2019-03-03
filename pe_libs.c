@@ -233,6 +233,8 @@ static uint32_t exec_msvcrt(uint32_t regs[], const char* func_name) {
 		return 0;
 	} else if (strcmp(func_name, "strftime") == 0) {
 		CALL_DMEM_LIBC(strftime)
+	} else if (strcmp(func_name, "calloc") == 0) {
+		CALL_DMEM_LIBC(calloc)
 	} else {
 		fprintf(stderr, "unimplemented function %s() in msvcrt.dll called.\n", func_name);
 		return PE_LIB_EXEC_FAILED;
