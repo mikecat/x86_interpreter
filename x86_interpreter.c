@@ -10,6 +10,7 @@
 #include "xv6_syscall.h"
 #include "pe_import.h"
 
+static int strict_mode = 0;
 static int use_xv6_syscall = 0;
 static int use_pe_import = 0;
 static pe_import_params import_params;
@@ -137,6 +138,7 @@ int step(void) {
 		OP_SHIFT,
 		OP_XCHG,
 		OP_MOV,
+		OP_CMOV,
 		OP_MOVZX,
 		OP_MOVSX,
 		OP_SETCC,
@@ -297,7 +299,19 @@ int step(void) {
 		fetch_data = step_memread(&memread_ok, inst_addr, CS, eip, 1);
 		if (!memread_ok) return 0;
 		eip++;
-		if ((fetch_data & 0xF0) == 0x80) {
+		if ((fetch_data & 0xF0) == 0x40) {
+			/* CMOVcc */
+			if (strict_mode) {
+				fprintf(stderr, "CMOVcc instruction, not in 80386, detected at %08"PRIx32"\n", inst_addr);
+				print_regs(stderr);
+				return 0;
+			}
+			op_kind = OP_CMOV;
+			op_width = is_data_16bit ? 2 : 4;
+			use_mod_rm = 1;
+			is_dest_reg = 1;
+			SET_JMP_TAKE
+		} else if ((fetch_data & 0xF0) == 0x80) {
 			/* Jcc rel16/32 */
 			op_kind = OP_JUMP;
 			op_width = is_data_16bit ? 2 : 4;
@@ -1294,6 +1308,12 @@ int step(void) {
 		result = src_value;
 		result_write = 1;
 		break;
+	case OP_CMOV:
+		if (jmp_take) {
+			result = src_value;
+			result_write = 1;
+		}
+		break;
 	case OP_MOVZX:
 		result = src_value;
 		if (op_width < 4) result &= UINT32_C(0xffffffff) >> (8 * (4 - op_width));
@@ -1836,6 +1856,8 @@ int main(int argc, char *argv[]) {
 					return 1;
 				}
 			} else { fprintf(stderr, "no FS buffer origin for --pe-fs\n"); return 1;}
+		} else if (strcmp(argv[i], "--strict") == 0) {
+			strict_mode = 1;
 		} else {
 			fprintf(stderr, "unknown command line option %s\n", argv[i]);
 			return 1;
